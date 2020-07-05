@@ -1,0 +1,17 @@
+Author: <lorenzo.allori@gmail.com>
+
+0) Prerequisites:
+    Docker Docker version 19.x.x
+
+1) Install docker images
+
+To install docker images for nifi and elasticsearch+kibana please run these commands:
+
+docker pull apache/nifi
+docker pull nshou/elasticsearch-kibana
+
+2) run the script nifi-kibana.sh with the fresh option
+
+2.a) after the firt install launch nifi-kibana.sh with the start option
+
+
