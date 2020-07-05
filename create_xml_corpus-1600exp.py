@@ -21,6 +21,10 @@ import xml.dom.minidom
 from datetime import datetime
 import re
 
+# Others Section
+from geopy.geocoders import Nominatim
+
+
 # Script parameters
 if len(sys.argv) != 2: 
     print("Usage: python3 euronewsPrj_create_xml_corpus.py (xmlonly|all)")
@@ -68,7 +72,7 @@ else:
 
 # Setting other globals
 prettyxml = str()
-
+city = str()
 
 # Get Date and Time
 def currentTime():
@@ -161,6 +165,19 @@ def getDocFields(docId):
 
     except Error as e:
         print("Error while connecting to MySQL", e)
+
+# Get Geographical coordinates for each city (TODO)
+# We should create a dictionary with all the coordinates of each place encountered and add the field in the xml corpus when needed.
+# we could add lat and long as attributes for all places fields (hub, newsFrom, plTransit)
+
+def getGeoCoordinates():
+    #city='London'
+
+    geolocator = Nominatim(user_agent='myapplication')
+    location = geolocator.geocode(city)
+    latitude=str(location.latitude) #not sure we can leave them as strings
+    longitude=str(location.longitude)
+    print(latitude + " " + longitude)
 
 
 def createXmlForDocsWithoutXml():
