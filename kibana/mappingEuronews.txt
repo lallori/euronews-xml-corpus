@@ -1,0 +1,46 @@
+PUT /euronews_project
+{
+  "mappings": {
+    
+        "properties": {
+          "xmlCorpusDate":  { 
+            "type":   "date",
+            "format": "yyyy-MM-dd"
+          },
+          "xmlCorpusTime":  { 
+            "type":   "date",
+            "format": "HH:mm:ss"
+          },
+          "newsDocument": { 
+            "type": "nested",
+            "properties": {
+              "docid":  { "type": "keyword" },
+              "newsHeader": {
+                "type": "object",
+                "properties": {
+                  "hub": { "type": "keyword" },
+                  "date":  { 
+                    "type":   "text"
+                  },
+                  "transc": { "type": "text" },
+                  "newsFrom": {
+                    "properties": {
+                      "from": { "type": "keyword" },
+                      "date":  { 
+                        "type":   "text"
+                      },
+                      "transc": { "type": "text" },
+                      "wordCount":  { "type": "text" },
+                      "position":  { "type": "integer" }
+                    }
+                  }
+                }
+              }
+            }
+          }  
+        }  
+        
+
+    
+  }
+}
