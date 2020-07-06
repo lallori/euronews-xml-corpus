@@ -1,0 +1,64 @@
+{
+  "type":"record",
+  "name":"newsHeader",
+  "namespace":"newsHeader",
+  "fields":[
+    {
+      "name":"hub",
+      "type": {
+        "name": "RecordForHub",
+        "type": "record",
+        "fields" : [
+          {"name": "lat", "type": "string"},
+		  {"name": "long", "type": "string"},
+          {"name": "description", "type": "string"}
+        ]
+	  }
+    },
+    {
+      "name":"date",
+      "type":"string"
+    },
+    {
+      "name":"transc",
+      "type":"string"
+    },
+    {
+      "name":"newsFrom",
+      "type":{
+        "type":"array",
+        "items":{
+          "type":"record",
+          "name":"newsFrom",
+          "namespace":"newsFrom.newsHeader.newsDocument",
+          "fields":[
+            {
+              "name":"from",
+              "type":"string"
+            },
+            {
+              "name":"date",
+              "type":"string"
+            },
+			{
+              "name":"plTransit",
+              "type":"string"
+            },
+            {
+              "name":"transc",
+              "type":"string"
+            },
+            {
+              "name":"wordCount",
+              "type":"string"
+            },
+            {
+              "name":"position",
+              "type":"int"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

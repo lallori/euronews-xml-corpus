@@ -1,0 +1,47 @@
+{
+  "type":"record",
+  "name":"newsFrom",
+  "namespace":"newsFrom",
+  "fields":[
+    {
+      "name":"from",
+      "type": {
+        "name": "RecordForFrom",
+        "type": "record",
+        "fields" : [
+          {"name": "lat", "type": "string"},
+		  {"name": "long", "type": "string"},
+          {"name": "description", "type": "string"}
+        ]
+	  }
+    },
+    {
+      "name":"date",
+      "type":"string"
+    },
+	{
+      "name":"plTransit",
+      "type": {
+        "name": "RecordForPlTransit",
+        "type": "record",
+        "fields" : [
+          {"name": "lat", "type": "string"},
+		  {"name": "long", "type": "string"},
+          {"name": "description", "type": "string"}
+        ]
+	  }
+    },
+    {
+      "name":"transc",
+      "type":"string"
+    },
+    {
+      "name":"wordCount",
+      "type":"string"
+    },
+    {
+      "name":"position",
+      "type":"int"
+    }
+  ]        
+}
