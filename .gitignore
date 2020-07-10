@@ -1,3 +1,5 @@
 configFile.ini
 xml_corpus.xml
 xml_tmp.xml
+testGeoPy.py
+xml-corpus-geo.xml
