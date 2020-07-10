@@ -17,9 +17,16 @@
           "namespace":"newsHeader.newsDocument",
           "fields":[
             {
-              "name":"hub",
-              "type":"string"
-            },
+			  "name":"hub",
+			  "type": {
+				"name": "RecordForHub",
+				"type": "record",
+				"fields" : [
+				  {"name": "location", "type": {"type":"record", "name": "RecordForHubLocation", "fields" : [{"name": "lat", "type": "float"},{"name": "lon", "type": "float"}]}},
+				  {"name": "placeName", "type": "string"}
+				]
+			  }
+			},
             {
               "name":"date",
               "type":"string"
@@ -38,29 +45,55 @@
                   "namespace":"newsFrom.newsHeader.newsDocument",
                   "fields":[
                     {
-                      "name":"from",
-                      "type":"string"
-                    },
+					  "name":"from",
+					  "type": {
+						"name": "RecordForFrom",
+						"type": "record",
+						"fields" : [
+						  {"name": "location", "type": {"type":"record", "name": "RecordForFromLocation", "fields" : [{"name": "lat", "type": "float"},{"name": "lon", "type": "float"}]}},
+						  {"name": "placeName", "type": "string"}
+						]
+					  }
+					},
                     {
                       "name":"date",
                       "type":"string"
                     },
 					{
-                      "name":"plTransit",
-                      "type":"string"
-                    },
+					  "name":"plTransit",
+					  "type": {
+						"name": "RecordForPlTransit",
+						"type": "record",
+						"fields" : [
+						  {"name": "location", "type": {"type":"record", "name": "RecordForTransitLocation", "fields" : [{"name": "lat", "type": "float"},{"name": "lon", "type": "float"}]}},
+						  {"name": "placeName", "type": "string"}
+						]
+					  }
+					},
                     {
-                      "name":"transc",
-                      "type":"string"
-                    },
-                    {
-                      "name":"wordCount",
-                      "type":"string"
-                    },
-                    {
-                      "name":"position",
-                      "type":"int"
-                    }
+					  "name":"plTransitUnsure",
+					  "type":"string"
+					},
+					{
+					  "name":"dateUnsure",
+					  "type":"string"
+					},
+					{
+					  "name":"fromUnsure",
+					  "type":"string"
+					},
+					{
+					  "name":"transc",
+					  "type":"string"
+					}, 
+					{
+					  "name":"wordCount",
+					  "type":"string"
+					},
+					{
+					  "name":"position",
+					  "type":"int"
+					}
                   ]
                 }
               }

@@ -3,15 +3,14 @@
   "name":"newsFrom",
   "namespace":"newsFrom",
   "fields":[
-    {
+	{
       "name":"from",
       "type": {
         "name": "RecordForFrom",
         "type": "record",
         "fields" : [
-          {"name": "lat", "type": "string"},
-		  {"name": "long", "type": "string"},
-          {"name": "description", "type": "string"}
+		  {"name": "location", "type": {"type":"record", "name": "RecordForFromLocation", "fields" : [{"name": "lat", "type": "float"},{"name": "lon", "type": "float"}]}},
+          {"name": "placeName", "type": "string"}
         ]
 	  }
     },
@@ -25,16 +24,27 @@
         "name": "RecordForPlTransit",
         "type": "record",
         "fields" : [
-          {"name": "lat", "type": "string"},
-		  {"name": "long", "type": "string"},
-          {"name": "description", "type": "string"}
+		  {"name": "location", "type": {"type":"record", "name": "RecordForTransitLocation", "fields" : [{"name": "lat", "type": "float"},{"name": "lon", "type": "float"}]}},
+          {"name": "placeName", "type": "string"}
         ]
 	  }
+    },
+	{
+      "name":"plTransitUnsure",
+      "type":"string"
+    },
+	{
+      "name":"dateUnsure",
+      "type":"string"
+    },
+	{
+      "name":"fromUnsure",
+      "type":"string"
     },
     {
       "name":"transc",
       "type":"string"
-    },
+    }, 
     {
       "name":"wordCount",
       "type":"string"
