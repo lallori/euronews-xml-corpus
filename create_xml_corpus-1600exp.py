@@ -1,9 +1,8 @@
 #!/usr/bin/python3.6
 # Authors Lorenzo Allori <lorenzo.allori@gmail.con>, Wouter Kreuze <kreuzewp@gmail.com>
 # ver. 1.0
-# qGetDocuments query has been customized to get all documents related to the year 1600
-# 
-#
+# Todo - addurls to documents.
+
 
 # File operations
 import os
@@ -15,6 +14,7 @@ import mysql.connector
 from mysql.connector import Error
 
 # XML Section
+import xml.etree.cElementTree as ET
 from lxml import etree
 from io import StringIO
 import xml.dom.minidom
@@ -42,6 +42,7 @@ else:
 
 # SQL Queries
 qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in (8196)) order by documentEntityId,uploadedFileId"
+#qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in (8196) and documentEntityId not in (9944) and documentEntityId not in (27231)) order by documentEntityId,uploadedFileId"
 
 # Files involved
 configFile="configFile.ini"
@@ -73,6 +74,8 @@ else:
 # Setting other globals
 prettyxml = str()
 city = str()
+locationDict= {}
+comma=','
 
 # Get Date and Time
 def currentTime():
@@ -166,18 +169,33 @@ def getDocFields(docId):
     except Error as e:
         print("Error while connecting to MySQL", e)
 
-# Get Geographical coordinates for each city (TODO)
-# We should create a dictionary with all the coordinates of each place encountered and add the field in the xml corpus when needed.
-# we could add lat and long as attributes for all places fields (hub, newsFrom, plTransit)
 
-def getGeoCoordinates():
-    #city='London'
-
+def getGeoCoordinates(city):
+    global longitude
+    global latitude
+    global locationDict
     geolocator = Nominatim(user_agent='myapplication')
-    location = geolocator.geocode(city)
-    latitude=str(location.latitude) #not sure we can leave them as strings
-    longitude=str(location.longitude)
-    print(latitude + " " + longitude)
+    if city in locationDict:
+        if 'lat' in locationDict[city]:
+            latitude=locationDict[city]['lat']
+        else:
+            pass
+        if 'long' in locationDict[city]:
+            longitude=locationDict[city]['long']
+        else:
+            pass
+    else:
+        #print(city)
+        locationDict[city] = {}
+        location = geolocator.geocode(city)
+        if location != None:    
+            latitude=str(location.latitude)
+            longitude=str(location.longitude)
+            locationDict.setdefault(city, [])
+            locationDict[city]['lat'] = latitude
+            locationDict[city]['long'] = longitude
+        else:
+            pass
 
 
 def createXmlForDocsWithoutXml():
@@ -215,6 +233,7 @@ def createXmlForDocsWithoutXml():
 
 # Write corpus file
 def create_rough_xml():
+    global mydb
     with open(filenametmp, 'w') as f:
         currentTime()
         # Header content of the xml file
@@ -251,11 +270,13 @@ def create_rough_xml():
                 allDocs.append(x[0])
 
             for x in myresult:
-                if '>' in x[1]: 
-                    # put each entry in file (URI to be added)
-                    docsWithXML.append(x[0])
-                else:
-                    docsMaybeWithoutXML.append(x[0])
+                #print(x)
+                if x[1] is not None:
+                    if '>' in x[1]: 
+                        # put each entry in file (URI to be added)
+                        docsWithXML.append(x[0])
+                    else:
+                        docsMaybeWithoutXML.append(x[0])
             docsWithoutXML=[x for x in docsMaybeWithoutXML if x not in docsWithXML]
             
             # Converting into tuples
@@ -398,19 +419,118 @@ def finalizeXmlCorpus():
     f.closed
 
 
+
+# add geographical coordinates to xml corpus
+def addGeoCoordToXml():
+    tree = ET.parse(filename)
+    root = tree.getroot()
+
+    for x in root.iter('hub'):
+        print(x.text)
+        city = x.text
+        # Removing hub/from/plTransit value
+        x.text=''
+        # Adding new placename tag with value
+        placeNameTag=ET.Element('placeName')
+        x.append(placeNameTag)
+        placeNameTag.text = city
+        # Adding new locationTag with values
+        if city != None:
+            if city != 'na' and city != 'NA' and city !='Na' and city !='[loss]' and city !='[unsure]' and city !='xxx':
+                if comma in city:
+                    city = city.replace(comma, " ")
+                    city = city.split(' ', 1)[0]
+                else:
+                    pass     
+                getGeoCoordinates(city)
+
+                if longitude and longitude:
+                    locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
+                    x.append(locationTag)
+        else:
+            pass
+
+    for x in root.iter('from'):
+        print(x.text)
+        city = x.text
+        # Removing hub/from/plTransit value
+        x.text=''
+        # Adding new placename tag with value
+        placeNameTag=ET.Element('placeName')
+        x.append(placeNameTag)
+        placeNameTag.text = city
+        # Adding new locationTag with values
+        if city != None:
+            if city != 'na' and city != 'NA' and city !='Na' and city !='[loss]' and city !='[unsure]' and city !='xxx':
+                if comma in city:
+                    city = city.replace(comma, " ")
+                    city = city.split(' ', 1)[0]
+                else:
+                    pass     
+                getGeoCoordinates(city)
+
+                if longitude and longitude:
+                    locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
+                    x.append(locationTag)
+        else:
+            pass
+
+    for x in root.iter('plTransit'):
+        print(x.text)
+        city = x.text
+        # Removing hub/from/plTransit value
+        x.text=''
+        # Adding new placename tag with value
+        placeNameTag=ET.Element('placeName')
+        x.append(placeNameTag)
+        placeNameTag.text = city
+        # Adding new locationTag with values
+        if city != None:
+            if city != 'na' and city != 'NA' and city !='Na' and city !='[loss]' and city !='[unsure]' and city !='xxx':
+                if comma in city:
+                    city = city.replace(comma, " ")
+                    city = city.split(' ', 1)[0]
+                else:
+                    pass     
+                getGeoCoordinates(city)
+
+                if longitude and longitude:
+                    locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
+                    x.append(locationTag)
+        else:
+            pass
+
+    tree.write('xml-corpus-geo.xml', encoding="UTF-8")
+
 #### RUN
 
 test_connection()
+print('Connection to DB ok!')
+print('')
+print('Loading..')
 create_rough_xml()
+print('- Rough XML ok!')
 # check_formatted_xml()
 fix_NewsDocument()
 fix_newsHeader()
+print('')
+print('- News Document and News Header ok!')
+print('')
 if includeNoXMLDocs is True:
     createXmlForDocsWithoutXml()
-
+    print('- Included documents without XML ok!')
+    print('')
+print('')
 finalizeXmlCorpus()
 check_formatted_xml()
+print('- XML Corpus finalized ok!!')
+print('')
+print('Adding geo coordinates... this could take time!')
+addGeoCoordToXml()
+print('- Added geo coordinates attributes! - check xml-corpus-geo.xml')
+print('')
 
+print('DONE')
 # finalizeXmlCorpus()
 
 
