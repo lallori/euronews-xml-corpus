@@ -70,6 +70,9 @@ PUT /euronews_project_newsheader
               }
             }
           },
+          "plTransitUnsure": { "type": "text" },
+          "dateUnsure": { "type": "text" },
+          "fromUnsure": { "type": "text" },
           "transc": { "type": "text" },
           "wordCount":  { "type": "text" },
           "position":  { "type": "integer" }
