@@ -1,20 +1,18 @@
 #!/bin/bash
 # This script can be used to run both nifi and elastisearch+kibana docker images.
-# 
+# Author Lorenzo Allori <lorenzo.allori@gmail.com>
+# v 1.0 - 05/07/2020
+#
 # Run options are:
 # {start|stop|restart|status|fresh}
 # the "fresh" is used to run them for the first time (or to have a clean version of the docker images)
 #
 # HINT: pls edit the variables for your local data paths 
-#
-# Author Lorenzo Allori <lorenzo.allori@gmail.com>
-# v 1.0 - 05/07/2020
+
 
 # Please edit with you own dirs (sharing between host system and docker containers
-# Inside the docker inst those will be mapped in: /opt/nifi/data/output /opt/nifi/data/input and /opt/kibana/data
-NIFIDIRINPUT="/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronews-xml-corpus/nifi/output"
 NIFIDIRINPUT="/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronews-xml-corpus/nifi/input"
-
+NIFIDIROUTPUT="/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronews-xml-corpus/nifi/output"
 KIBANADIROUTPUT="/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronews-xml-corpus/kibana"
 
 
@@ -42,11 +40,11 @@ fresh() {
 
 	# with network --- do not use --
 	#sudo docker run -d --network cyberint --name kibana --mount type=bind,source=/home/lorenzo/Documents,target=/opt/kibana/data -p 9200:9200 -p 5601:5601 nshou/elasticsearch-kibana
-	#sudo docker run --network cyberint --name nifi --mount type=bind,source=/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronewsproject-xml-corpus/xmlinput,target=/opt/nifi/data/input --mount type=bind,source=/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronewsproject-xml-corpus/nifi,target=/opt/nifi/data/output -p 8080:8080 -d apache/nifi:latest
+	#sudo docker run --network cyberint --name nifi --mount type=bind,source=/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronewsproject-xml-corpus/xmloutput,target=/opt/nifi/data/input --mount type=bind,source=/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronewsproject-xml-corpus/nifi,target=/opt/nifi/data/output -p 8080:8080 -d apache/nifi:latest
 
 	# with host network --- use this ---
-	sudo docker run -d --network host --name kibana --mount type=bind,source=${KIBANADIRDATA},target=/opt/kibana/data -p 9200:9200 -p 5601:5601 nshou/elasticsearch-kibana
-	sudo docker run --network host --name nifi --mount type=bind,source=${NIFIDIROUTPUT},target=/opt/nifi/data/input --mount type=bind,source=${NIFIDIROUTPUT},target=/opt/nifi/data/output -p 8080:8080 -d apache/nifi:latest
+	sudo docker run -d --network host --name kibana --mount type=bind,source=${KIBANADIROUTPUT},target=/opt/kibana/data -p 9200:9200 -p 5601:5601 nshou/elasticsearch-kibana
+	sudo docker run --network host --name nifi --mount type=bind,source=${NIFIDIRINPUT},target=/opt/nifi/data/input --mount type=bind,source=${NIFIDIROUTPUT},target=/opt/nifi/data/output -p 8080:8080 -d apache/nifi:latest
 	echo "Loading...."
 	sleep 3
 	howtoaccess
