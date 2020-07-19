@@ -1,7 +1,7 @@
 #!/bin/bash
 # This script can be used to run both nifi and elastisearch+kibana docker images.
 # Author Lorenzo Allori <lorenzo.allori@gmail.com>
-# v 1.0 - 05/07/2020
+# v 1.1 - 19/07/2020
 #
 # Run options are:
 # {start|stop|restart|status|fresh}
@@ -9,6 +9,8 @@
 #
 # HINT: pls edit the variables for your local data paths 
 
+# Versions
+ELKVER="7.7.1"
 
 # Please edit with you own dirs (sharing between host system and docker containers
 NIFIDIRINPUT="/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronews-xml-corpus/nifi/input"
@@ -35,19 +37,21 @@ fresh() {
 	echo "Creating a fresh install of NIFI+ELASTICSEARCH+KIBANA"
 	sudo docker container stop nifi
 	sudo docker container stop kibana
+	sudo docker container stop elasticsearch
 	sudo docker container rm nifi
 	sudo docker container rm kibana
+	sudo docker container rm elasticsearch
 
 	# with network --- do not use --
 	#sudo docker run -d --network cyberint --name kibana --mount type=bind,source=/home/lorenzo/Documents,target=/opt/kibana/data -p 9200:9200 -p 5601:5601 nshou/elasticsearch-kibana
 	#sudo docker run --network cyberint --name nifi --mount type=bind,source=/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronewsproject-xml-corpus/xmloutput,target=/opt/nifi/data/input --mount type=bind,source=/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronewsproject-xml-corpus/nifi,target=/opt/nifi/data/output -p 8080:8080 -d apache/nifi:latest
 
 	# with host network --- use this ---
-	sudo docker run -d --network host --name kibana --mount type=bind,source=${KIBANADIROUTPUT},target=/opt/kibana/data -p 9200:9200 -p 5601:5601 nshou/elasticsearch-kibana
-	sudo docker run --network host --name nifi --mount type=bind,source=${NIFIDIRINPUT},target=/opt/nifi/data/input --mount type=bind,source=${NIFIDIROUTPUT},target=/opt/nifi/data/output -p 8080:8080 -d apache/nifi:latest
+	sudo docker run -d --network host --name nifi --mount type=bind,source=${NIFIDIRINPUT},target=/opt/nifi/data/input --mount type=bind,source=${NIFIDIROUTPUT},target=/opt/nifi/data/output -p 8080:8080 -d apache/nifi:latest
+	sudo docker run -d --network host --name kibana --mount type=bind,source=${KIBANADIROUTPUT},target=/opt/kibana/data -p 5601:5601 kibana:${ELKVER}
+	sudo docker run -d --network host --name elasticsearch -p 9200:9200 -p 9300:9300 -e "discovery.type=single-node" elasticsearch:${ELKVER}	
 	echo "Loading...."
 	sleep 3
-	howtoaccess
 	status
 
 }
@@ -59,6 +63,7 @@ start() {
 	sudo docker container start nifi
 	echo "Starting Elastic+Kibana.."
 	sudo docker container start kibana
+	sudo docker container start elasticsearch
 	echo "Loading..."
 	sleep 3
 	howtoaccess
@@ -71,8 +76,14 @@ stop() {
 	sudo docker container stop nifi
 	echo "Stopping Elastic+Kibana.."
 	sudo docker container stop kibana
+	sudo docker container stop elasticsearch
 	status
 }
+
+restart() {
+	stop
+	start
+} 
 
 
 status() {
