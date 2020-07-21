@@ -1,0 +1,36 @@
+DELETE p2p
+PUT p2p
+{
+  "mappings":{
+     "properties":{
+        "hub":{
+           "properties":{
+              "date":{
+                 "type":"date",
+                 "format":"dd/MM/yyyy"
+              },
+              "location":{
+                 "type":"geo_point"
+              },
+              "placeName":{
+                 "type":"text"
+              }
+           }
+        },
+        "from":{
+            "properties":{
+               "date":{
+                  "type":"date",
+                  "format":"dd/MM/yyyy"
+               },
+               "location":{
+                  "type":"geo_point"
+               },
+               "placeName":{
+                  "type":"text"
+               }
+            }
+        }
+     }
+  }
+}
