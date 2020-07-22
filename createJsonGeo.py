@@ -37,18 +37,23 @@ def getXmlValues():
     documentId=1
     for header in root.iter('newsHeader'):
         #Get Date Hub Values
-        hubDate=header.find('date').text
+        hubDate=header.find('date')
+        print(hubDate)
         if hubDate is None:
             hubDate="01/01/0001"
         else:
-            hubDate=hubDate.strip()
-            if ' ' in hubDate:
-                hubDate = hubDate.split(' ', 1)[0]
-                print(hubDate)
-            if ';' in hubDate:
-                    hubDate = hubDate.replace(";", " ")
+            hubDate=header.find('date').text
+            if hubDate is None:
+                hubDate="01/01/0001"
+            else:
+                hubDate=hubDate.strip()
+                if ' ' in hubDate:
                     hubDate = hubDate.split(' ', 1)[0]
                     print(hubDate)
+                if ';' in hubDate:
+                        hubDate = hubDate.replace(";", " ")
+                        hubDate = hubDate.split(' ', 1)[0]
+                        print(hubDate)
         day,month,year = hubDate.split('/')
 
         isValidDate = True
@@ -77,19 +82,24 @@ def getXmlValues():
             #Get Date Hub Values
             #---> check if fromDate is none.
             i=0
-            fromDate=newsFrom.find('date').text
+            fromDate=newsFrom.find('date')
+            print(fromDate)
             if fromDate is None:
                 fromDate="01/01/0001"
             else:
-                fromDate=fromDate.strip()
-                if ' ' in fromDate:
-                    fromDate.rstrip()
-                    fromDate = fromDate.split(' ', 1)[0]
-                    print(fromDate)
-                if ';' in fromDate:
-                    fromDate = fromDate.replace(";", " ")
-                    fromDate = fromDate.split(' ', 1)[0]
-                    print(fromDate)
+                fromDate=newsFrom.find('date').text
+                if fromDate is None:
+                    fromDate="01/01/0001"
+                else:
+                    fromDate=fromDate.strip()
+                    if ' ' in fromDate:
+                        fromDate.rstrip()
+                        fromDate = fromDate.split(' ', 1)[0]
+                        print(fromDate)
+                    if ';' in fromDate:
+                        fromDate = fromDate.replace(";", " ")
+                        fromDate = fromDate.split(' ', 1)[0]
+                        print(fromDate)
             day,month,year = fromDate.split('/')
 
             isValidDate = True
