@@ -16,40 +16,46 @@ import uuid
 import datetime
 import unicodedata
 
-# xmlFilename='prova2.xml'
+# xmlFilename='prova.xml'
 xmlFilename='xml-corpus-geo.xml'
 jsonFilename='prova.json'
 # esindex='euronewsp2p'
-esindex='euronewsp2pk'
-
+esindex='prova2'
 documentId=int()
-miadocid=""
+
+miaDocId=""
+# newsId is mapDocId+position
+newsId=""
 hubDate=str()
 hubPlaceLat=str()
 hubPlaceLon=str()
 hubPlaceName=str()
+hubTranscription=""
 fromDate=str()
 fromPlaceLat=str()
 fromPlaceLon=str()
 fromPlaceName=str()
 transcription=""
+newsPosition=""
 
 def existstr(s):
     return '' if s is None else str(s)
 
+def filldate(d):
+    d='/'.join(x.zfill(2) for x in d.split('/'))
 
 def getXmlValues():
-    global documentId,miadocid,hubDate,hubTranscription,hubPlaceLat,hubPlaceLon,hubPlaceName,fromDate,fromPlaceLat,fromPlaceLon,fromPlaceName,transcription
+    global documentId,miaDocId,hubDate,hubTranscription,hubPlaceLat,hubPlaceLon,hubPlaceName,newsId,fromDate,fromPlaceLat,fromPlaceLon,fromPlaceName,transcription,newsPosition
     tree = ET.parse(xmlFilename)
     root = tree.getroot()
     documentId=1
     ### MIA doc ID ###
     for document in root.iter('newsDocument'):
-        miadocid=document.find('docid').text
-        print(miadocid)
+        miaDocId=document.find('docid').text
+        print(miaDocId)
         ### Header section ###
         for header in document.iter('newsHeader'):
-            #Get Date Hub Values
+            #Get Hub DATE Values
             hubDate=header.find('date')
             print(hubDate)
             if hubDate is None:
@@ -67,6 +73,8 @@ def getXmlValues():
                             hubDate = hubDate.replace(";", " ")
                             hubDate = hubDate.split(' ', 1)[0]
                             print(hubDate)
+                #fill with zeros the date if wrong format (ex. 6/6/1534 becomes 06/06/1534)
+                hubDate='/'.join(x.zfill(2) for x in hubDate.split('/'))
             day,month,year = hubDate.split('/')
 
             isValidDate = True
@@ -80,7 +88,7 @@ def getXmlValues():
             else :
                 # Date invalid - putting default value - this has to be changed
                 hubDate="01/01/0001"
-            # Get Hub Transcription
+            # Get Hub TRANSCRIPTION
             hubTranscription = header.find('transc')
             if hubTranscription is None:
                 print('hubTranscription is none')
@@ -88,7 +96,7 @@ def getXmlValues():
             else:
                 hubTranscription=existstr(header.find('transc').text)
                 print(hubTranscription)
-            #Get Hub Values
+            #Get Hub PLACES
             print('--start---')
             for x in header.iter('hub'):
                 hubPlaceName=x.find('placeName').text
@@ -114,6 +122,7 @@ def getXmlValues():
                         fromPlaceName = hubPlaceName
                     if not transcription:
                         transcription = hubTranscription
+                    newsPosition="1"
                     documentPutElasticsearch()
                     print('--end---')
                     documentId=documentId+1
@@ -125,7 +134,7 @@ def getXmlValues():
                         #---> check if fromDate is none.
                         i=0
                         fromDate=newsFrom.find('date')
-                        print(fromDate)
+                        # print(fromDate)
                         if fromDate is None:
                             fromDate=hubDate
                         else:
@@ -133,6 +142,7 @@ def getXmlValues():
                             if fromDate is None:
                                 fromDate=hubDate
                             else:
+                                print('ENTRA QUI')
                                 fromDate=fromDate.strip()
                                 if ' ' in fromDate:
                                     fromDate.rstrip()
@@ -142,6 +152,8 @@ def getXmlValues():
                                     fromDate = fromDate.replace(";", " ")
                                     fromDate = fromDate.split(' ', 1)[0]
                                     print(fromDate)
+                                #fill with zeros the date if wrong format (ex. 6/6/1534 becomes 06/06/1534)
+                                fromDate='/'.join(x.zfill(2) for x in fromDate.split('/'))
                         day,month,year = fromDate.split('/')
 
                         isValidDate = True
@@ -156,7 +168,7 @@ def getXmlValues():
                             # Date invalid - put hub date
                             # fromDate="01/01/0001"
                             fromDate=hubDate 
-                        # Get From Values
+                        # Get From PLACES
                         for x in newsFrom.iter('from'):
                             fromPlaceName=x.find('placeName').text
                             if fromPlaceName is None:
@@ -175,6 +187,12 @@ def getXmlValues():
                         # Get Trascription Values
                         transcription=existstr(newsFrom.find('transc').text)
                         print("TRANSCRIPTION: " + transcription)
+                        # Get Position Value
+                        newsPosition=(newsFrom.find('position'))
+                        if newsPosition is None:
+                            newsPosition="1"
+                        else:
+                            newsPosition=existstr(newsFrom.find('position').text)
                         # writeJson()
                         documentPutElasticsearch()
                         print('--end---')
@@ -182,12 +200,14 @@ def getXmlValues():
                         print(documentId)                  
 
 def documentPutElasticsearch():
-    global documentId, esindex, transcription
+    global documentId, esindex, newsPosition, transcription
     es = Elasticsearch()
     # Define Json Structure
-    print(miadocid +  fromDate + fromPlaceLat + fromPlaceLon + fromPlaceName)
+    newsId=miaDocId+"-"+newsPosition
+    print(newsId + miaDocId +  fromDate + fromPlaceLat + fromPlaceLon + fromPlaceName)
     doc = {
-        "miadocid":miadocid,
+        "newsId":newsId,
+        "miaDocId":miaDocId,
         "hub":{
             "date": hubDate,
             "location": {
@@ -206,17 +226,20 @@ def documentPutElasticsearch():
 
         },
         "transcription": transcription,
-        "transcriptionk": transcription
+        "transcriptionk": transcription,
+        "newsPosition":newsPosition
     }
     res = es.index(index=esindex, id=documentId, body=doc)
     print(res['result'])
     transcription=""
 
 def writeJson():
-    global documentId
+    global documentId, newsPosition, transcription
+    newsId=miaDocId+"-"+newsPosition
     # Define Json Structure
     obj = {
-        "miadocid":miadocid,
+        "newsId":newsId,
+        "miaDocId":miaDocId,
         "hub":{
             "date": hubDate,
             "location": {
@@ -235,8 +258,8 @@ def writeJson():
 
         },
         "transcription": transcription,
-        "transcriptionk": transcription
-
+        "transcriptionk": transcription,
+        "newsPosition":newsPosition
     }
     if obj.get(transcription) is not None:
         print("PRIMA " + obj.get(transcription))
