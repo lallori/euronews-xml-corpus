@@ -41,8 +41,8 @@ else:
     exit()
 
 # SQL Queries
-qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in (8196)) order by documentEntityId,uploadedFileId"
-#qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in (8196) and documentEntityId not in (9944) and documentEntityId not in (27231)) order by documentEntityId,uploadedFileId"
+#qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in (8196)) order by documentEntityId,uploadedFileId"
+qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in (8196,9944,27231,27250,27131,27263,27288,50447,50449,50450,50454,50863,51452,51495,51610,51611,51629,51742,51750,52065,52079)) order by documentEntityId,uploadedFileId"
 
 # Files involved
 configFile="configFile.ini"
@@ -111,6 +111,21 @@ def test_connection():
 
 
 ###### PROD FUNCTIONS
+
+
+def placeNameStrip(placeName):
+    if(placeName is None or placeName == ""):
+        print('no placename')
+        pass
+    else:
+        placeName=placeName.replace(" ", "")
+        print(placeName)
+        placeName=placeName.split(', ')
+        print(placeName)
+    for x in placeName:
+        print(x)
+
+
 # Get docFields if document trascription does not contain xml
 def getDocFields(docId):
     qGetTransc="select transcription from tblDocTranscriptions where documentEntityId="
@@ -200,7 +215,7 @@ def getGeoCoordinates(city):
 
 def createXmlForDocsWithoutXml():
     #print(docsWithoutXML)
-    with open(filename, "r+", encoding = "utf-8") as f:
+    with open(filename, "a", encoding = "utf-8") as f:
         f.seek(0, os.SEEK_END)
         pos = f.tell() - 1
 
