@@ -1,7 +1,7 @@
 # euronewsproject xml corpus 
 
 
-This set of scripts is used to create an xml corpus that will be used for data analitics.
+This set of scripts is used to create an xml corpus that will be used for data analytics.
 It gets the the Euronews project (https://www.euronewsproject.org/) data from the MIA database (https://www.medici.org/the-medici-interactive-archive-mia/). 
 
 
