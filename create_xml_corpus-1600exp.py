@@ -20,6 +20,7 @@ from io import StringIO
 import xml.dom.minidom
 from datetime import datetime
 import re
+import json
 
 # Others Section
 from geopy.geocoders import Nominatim
@@ -42,13 +43,14 @@ else:
 
 # SQL Queries
 #qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in (8196)) order by documentEntityId,uploadedFileId"
-qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in (8196,9944,27231,27250,27131,27263,27288,50447,50449,50450,50454,50863,51452,51495,51610,51611,51629,51742,51750,52065,52079)) order by documentEntityId,uploadedFileId"
+qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in (8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50447,50449,50450,50454,50863,51452,51495,51610,51611,51629,51742,51750,52065,52079)) order by documentEntityId,uploadedFileId"
 
 # Files involved
 configFile="configFile.ini"
 
 filename="xml_corpus.xml"
 filenametmp="xml_tmp.xml"
+filename_test='xml_corpus_test.xml'
 filenamewithids="xml_corpus_with_ids.xml"
 newCorpusFile = "newCorpusFile.xml"
 
@@ -76,6 +78,7 @@ prettyxml = str()
 city = str()
 locationDict= {}
 comma=','
+count=int()
 
 # Get Date and Time
 def currentTime():
@@ -328,11 +331,6 @@ def create_rough_xml():
         except Error as e:
             print("Error reading data from MySQL table", e)
 
-        finally:
-            if (mydb.is_connected()):
-                mydb.close()
-                mydb.close()
-                print("MySQL connection is closed")
     f.closed
 
     # Remove carriage returns
@@ -424,6 +422,53 @@ def fix_NewsDocument():
     with open(filename, 'w') as f:
         f.write(prettyxml)
 
+def add_ArchivalProperties():
+    global prettyxml, mydb
+
+    # Getting repositories dictionary
+    repoDict = json.load(open("repositoriesDict.txt"))
+
+    print('- Adding Archival Properties to XML- please wait...')
+
+    with open(filename, 'r') as f:
+        prettyxml = f.read()
+        count=0
+        for docId in re.findall(r'(?:<docid>)(\d+)', prettyxml):
+            qGetUploaded="select uploadedFileId from tblDocTranscriptions where documentEntityId ="+docId
+            
+            mydb
+            mycursor1 = mydb.cursor()
+            mycursor1.execute(qGetUploaded)
+            myresult1 = mycursor1.fetchall()
+            uploadFileId=str(myresult1[0][0])
+            # print(uploadFileId)
+            
+            qGetRepoColl="select repository, collectionName from tblCollections where id in (select collection from tblUploads where id in (select idTblUpload from tblUploadedFiles where id ='" + uploadFileId +"'))"
+            mycursor1.execute(qGetRepoColl)
+            myresult1 = mycursor1.fetchall()
+            repository=str(myresult1[0][0])
+            # getting repository name from repositoriesDict.txt generated from tblRepositories
+            repository=(repoDict["1"])
+            collection=str(myresult1[0][1])
+
+            qGetVolume="select volume from tblVolumes where SUMMARYID in (select volume from tblUploads where id in (select idTblUpload from tblUploadedFiles where id ='" + uploadFileId +"'))"
+            mycursor1.execute(qGetVolume)
+            myresult1 = mycursor1.fetchall()
+            volume=str(myresult1[0][0])
+
+            print(repository)
+            print(collection)
+            print(volume)
+
+            prettyxml = prettyxml.replace('<docid>'+docId+'</docid>', '<docid>'+docId+'</docid><repository>'+repository+'</repository><collection>'+collection+'</collection><volume>'+volume+'</volume>', 1)
+            # input('')
+            count+=1
+            print('Documents processed: ' + str(count))
+        
+    with open(filename, 'w') as f:
+        f.write(prettyxml)
+
+
 
 # Output final xmlcorpus
 def finalizeXmlCorpus():
@@ -432,16 +477,21 @@ def finalizeXmlCorpus():
     with open(filename, 'w') as f:
         f.write(prettyxml)
     f.closed
-
-
+    
+    if (mydb.is_connected()):
+        mydb.close()
+        mydb.close()
+        print("MySQL connection is closed")
 
 # add geographical coordinates to xml corpus
 def addGeoCoordToXml():
+    print('- Adding Geographical Locations to XML- please wait...')
     tree = ET.parse(filename)
     root = tree.getroot()
 
+    count=0
     for x in root.iter('hub'):
-        print(x.text)
+        # print(x.text)
         city = x.text
         # Removing hub/from/plTransit value
         x.text=''
@@ -464,9 +514,13 @@ def addGeoCoordToXml():
                     x.append(locationTag)
         else:
             pass
+        count+=1
+        print('Hubs places: ' + str(count))
 
+    count=0
     for x in root.iter('from'):
-        print(x.text)
+        
+        # print(x.text)
         city = x.text
         # Removing hub/from/plTransit value
         x.text=''
@@ -489,9 +543,12 @@ def addGeoCoordToXml():
                     x.append(locationTag)
         else:
             pass
+        count+=1
+        print('News places: ' + str(count))
 
+    count=0
     for x in root.iter('plTransit'):
-        print(x.text)
+        # print(x.text)
         city = x.text
         # Removing hub/from/plTransit value
         x.text=''
@@ -514,6 +571,8 @@ def addGeoCoordToXml():
                     x.append(locationTag)
         else:
             pass
+        count+=1
+        print('Place of Transit places: ' + str(count))
 
     tree.write('xml-corpus-geo.xml', encoding="UTF-8")
 
@@ -525,9 +584,10 @@ print('')
 print('Loading..')
 create_rough_xml()
 print('- Rough XML ok!')
-# check_formatted_xml()
+##check_formatted_xml()
 fix_NewsDocument()
 fix_newsHeader()
+add_ArchivalProperties()
 print('')
 print('- News Document and News Header ok!')
 print('')
@@ -546,7 +606,7 @@ print('- Added geo coordinates attributes! - check xml-corpus-geo.xml')
 print('')
 
 print('DONE')
-# finalizeXmlCorpus()
+##finalizeXmlCorpus()
 
 
 

@@ -27,9 +27,11 @@ xmlFilename='xml-corpus-geo.xml'
 
 ### ELASTICSEARCH INDEXES SECTION
 # Json filename with ES puts (can be changed according to casestudy)
-jsonFilename='1600experiment.json'
+# jsonFilename='1600experiment.json'
+jsonFilename='all_news.json'
 # Index name (can be changed according to casestudy) 
-esindex='1600experiment'
+#esindex='1600experiment'
+esindex='prova2'
 
 # Index mapping
 mapping ={
@@ -37,6 +39,15 @@ mapping ={
       "properties":{
          "newsId":{
             "type":"text"
+         },
+         "repository":{
+            "type":"keyword"
+         },
+         "collection":{
+            "type":"keyword"
+         },
+         "volume":{
+            "type":"keyword"
          },
          "miaDocId":{
             "type":"keyword"
@@ -69,8 +80,23 @@ mapping ={
                }
             }
          },
+        #  "plTransit":{
+        #     "properties":{
+        #     #    "date":{
+        #     #       "type":"date",
+        #     #       "format":"dd/MM/yyyy"
+        #     #    },
+        #        "location":{
+        #           "type":"geo_point"
+        #        },
+        #        "placeName":{
+        #           "type":"text"
+        #        }
+        #     }
+        #  },
          "transcription":{
-            "type":"text"
+            "type":"text", 
+            "fielddata": True
          },
          "transcriptionk":{
             "type":"keyword"
@@ -87,6 +113,9 @@ documentId=int()
 miaDocId=""
 # newsId is mapDocId+position
 newsId=""
+repository=""
+collection=""
+volume=""
 hubDate=""
 hubPlaceLat=""
 hubPlaceLon=""
@@ -96,6 +125,9 @@ fromDate=""
 fromPlaceLat=""
 fromPlaceLon=""
 fromPlaceName=""
+plTransitName=""
+plTransitLat=""
+plTransitLon=""
 transcription=""
 newsPosition=""
 locationDict = {}
@@ -135,6 +167,9 @@ def documentPutElasticsearch():
     esDoc = {
         "newsId":newsId,
         "miaDocId":miaDocId,
+        "repository":repository,
+        "collection":collection,
+        "volume":volume,
         "hub":{
             "date": hubDate,
             "location": {
@@ -152,6 +187,15 @@ def documentPutElasticsearch():
             "placeName":fromPlaceName
 
         },
+        # "plTransit":{
+        #     # "date": fromDate,
+        #     "location": {
+        #         "lat": plTransitLat,
+        #         "lon": plTransitLon
+        #     },
+        #     "placeName":plTransitName
+
+        # },
         "transcription": transcription,
         "transcriptionk": transcription,
         "newsPosition":newsPosition
@@ -215,7 +259,7 @@ def writeJson():
 
 ### -- MAIN --
 def populateElasticsearchIndex():
-    global esDoc,locationDict,documentId,miaDocId,hubDate,hubTranscription,hubPlaceLat,hubPlaceLon,hubPlaceName,newsId,fromDate,fromPlaceLat,fromPlaceLon,fromPlaceName,transcription,newsPosition
+    global esDoc,locationDict,documentId,miaDocId,repository,collection,volume,hubDate,hubTranscription,hubPlaceLat,hubPlaceLon,hubPlaceName,newsId,fromDate,fromPlaceLat,fromPlaceLon,fromPlaceName,transcription,newsPosition
     # Inizialize ES index
     createIndexElasticsearch()
     # Start processing XML to get data
@@ -227,6 +271,11 @@ def populateElasticsearchIndex():
     ### MIA doc ID ###
     for document in root.iter('newsDocument'):
         miaDocId=document.find('docid').text
+        
+        repository=document.find('repository').text
+        collection=document.find('collection').text
+        volume=document.find('volume').text
+
         print(miaDocId)
         ### Header section ###
         for header in document.iter('newsHeader'):
@@ -321,7 +370,7 @@ def populateElasticsearchIndex():
                                         x = hubPlaceName
                                     fromPlaceName=x
                                     getGeoCoordinates(x)
-                                    print(x + ": lat-"+latitude+" long-"+longitude)
+                                    print(x + ": lat "+latitude+" long "+longitude)
                                     fromPlaceLat=latitude
                                     fromPlaceLon=longitude
                                     #Get Date From Values
@@ -362,6 +411,25 @@ def populateElasticsearchIndex():
                                         # Date invalid - put hub date
                                         # fromDate="01/01/0001"
                                         fromDate=hubDate
+                                    
+                                    # Get plTransit Values (To be finished)
+                                    # for x in newsFrom.iter('plTransit'):
+                                    #     plTransitName=x.find('placeName').text
+                                    #     if plTransitName is None:
+                                    #         plTransitName=""
+                                    #     else:
+                                    #         placeList=plTransitName.split(',')
+                                    #         for x in placeList:
+                                    #             x=x.strip()
+                                    #             if x == "xxx" or x == "[NA]" or x == "NA" or x == "na":
+                                    #                 x = hubPlaceName
+                                    #             plTransitName=x
+                                    #             getGeoCoordinates(x)
+                                    #             print('########PLTRANSIT')
+                                    #             print(plTransitName + ": lat "+latitude+" long "+longitude)
+                                    #             plTransitLat=latitude
+                                    #             plTransitLon=longitude
+
                                     # Get Trascription Values
                                     transcription=existstr(newsFrom.find('transc').text)
                                     print("TRANSCRIPTION: " + transcription)
@@ -378,6 +446,9 @@ def populateElasticsearchIndex():
                                     print(documentId)
                                     # print(locationDict)                     
                             i=i+1
+                        
+
+
     with open('locationDict.txt', 'w') as f:
         f.write(json.dumps(locationDict))
         f.close()                        
