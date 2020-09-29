@@ -3,11 +3,11 @@
 # ver. 1.0
 # Todo - addurls to documents.
 
-
 # File operations
 import os
 import sys
 from configparser import SafeConfigParser
+import time
 
 # Mysql section
 import mysql.connector
@@ -20,7 +20,10 @@ from io import StringIO
 import xml.dom.minidom
 from datetime import datetime
 import re
+
+# JSON Section
 import json
+import jsbeautifier
 
 # Others Section
 from geopy.geocoders import Nominatim
@@ -43,7 +46,8 @@ else:
 
 # SQL Queries
 #qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in (8196)) order by documentEntityId,uploadedFileId"
-qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in (8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50447,50449,50450,50454,50863,51452,51495,51610,51611,51629,51742,51750,52065,52079)) order by documentEntityId,uploadedFileId"
+documentListToExclude="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50447,50449,50450,50454,50863,50879,51452,51495,51610,51611,51629,51742,51750,52065,52079"
+qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
 
 # Files involved
 configFile="configFile.ini"
@@ -53,6 +57,7 @@ filenametmp="xml_tmp.xml"
 filename_test='xml_corpus_test.xml'
 filenamewithids="xml_corpus_with_ids.xml"
 newCorpusFile = "newCorpusFile.xml"
+locationDictFile = "locationDict.txt"
 
 
 # Get config properties
@@ -73,33 +78,46 @@ if os.path.isfile(configFile):
 else:
     print("Config file not found")
 
-# Setting other globals
-prettyxml = str()
-city = str()
-locationDict= {}
-comma=','
-count=int()
-
-# Get Date and Time
-def currentTime():
-    global current_date
-    global current_time
-    now = datetime.now()
-    current_date = now.strftime("%Y-%m-%d")
-    current_time = now.strftime("%H:%M:%S")
-    # print(current_date + ' '  + current_time)
-
-# Test Database connection
-def test_connection(): 
-    try:
-        global mydb
-        mydb = mysql.connector.connect(
+# Mysql Connection properties
+mydb = mysql.connector.connect(
         host=myhost,
         port=myport,
         user=myuser,
         passwd=mypasswd,
         database=mydbname
         )
+
+# Setting other globals
+prettyxml = ""
+city = ""
+locationDict= {}
+comma=','
+count=int()
+transcription=""
+docDay=""
+docMonth=""
+docYear=""
+docModernYear=""
+placeOfOrigin=""
+latitude=""
+longitude=""
+docsWithXML=list()
+docsMaybeWithoutXML=list()
+docsWithoutXML=list()
+totalDocumentsCount=""
+
+# Get Date and Time
+def currentDateAndTime():
+    now = datetime.now()
+    current_date = now.strftime("%Y-%m-%d")
+    current_time = now.strftime("%H:%M:%S")
+    return current_date, current_time
+    # print(current_date + ' '  + current_time)
+
+# Test Database connection
+def test_connection(): 
+    try:
+        global mydb
         if mydb.is_connected():
             db_Info = mydb.get_server_info()
             print("Connected to MySQL Server version ", db_Info)
@@ -109,13 +127,10 @@ def test_connection():
             print("You're connected to database: ", record)
     except Error as e:
         print("Error while connecting to MySQL", e)
-
 ###### TEST FUNCTIONS
 
 
 ###### PROD FUNCTIONS
-
-
 def placeNameStrip(placeName):
     if(placeName is None or placeName == ""):
         print('no placename')
@@ -127,7 +142,6 @@ def placeNameStrip(placeName):
         print(placeName)
     for x in placeName:
         print(x)
-
 
 # Get docFields if document trascription does not contain xml
 def getDocFields(docId):
@@ -183,27 +197,34 @@ def getDocFields(docId):
             results = mycursor.fetchall()
             for row in results:
                 transcription=row[0]
+        # have to remove globals (TODOS)
+        return transcription, docDay, docMonth, docYear, docModernYear, placeOfOrigin
 
     except Error as e:
         print("Error while connecting to MySQL", e)
 
+def loadGeoLocationsFile():
+    global locationDict
+    if os.path.isfile('./'+locationDictFile):
+        dictionary = json.load(open(locationDictFile))
+        locationDict = dictionary
+    else:
+        locationDict = {}
+
 
 def getGeoCoordinates(city):
-    global longitude
-    global latitude
     global locationDict
     geolocator = Nominatim(user_agent='myapplication')
     if city in locationDict:
         if 'lat' in locationDict[city]:
             latitude=locationDict[city]['lat']
         else:
-            pass
+            latitude = ""
         if 'long' in locationDict[city]:
             longitude=locationDict[city]['long']
         else:
-            pass
+            longitude = ""
     else:
-        #print(city)
         locationDict[city] = {}
         location = geolocator.geocode(city)
         if location != None:    
@@ -213,12 +234,12 @@ def getGeoCoordinates(city):
             locationDict[city]['lat'] = latitude
             locationDict[city]['long'] = longitude
         else:
-            pass
-
+            latitude = ""
+            longitude = ""
+    return latitude, longitude
 
 def createXmlForDocsWithoutXml():
-    #print(docsWithoutXML)
-    with open(filename, "a", encoding = "utf-8") as f:
+    with open(filename, "r+", encoding = "utf-8") as f:
         f.seek(0, os.SEEK_END)
         pos = f.tell() - 1
 
@@ -230,7 +251,7 @@ def createXmlForDocsWithoutXml():
             f.truncate()
 
         print('Processing... please wait.. this can take time...')
-        # add counter for progress bar (len of docsWithoutXML)
+        count=0
         for x in docsWithoutXML:
             getDocFields(x)
             f.write('<newsDocument>\n')
@@ -242,18 +263,25 @@ def createXmlForDocsWithoutXml():
                 f.write('<hub>'+ placeOfOrigin +'</hub>\n')
             f.write('<date>'+str(docDay) + "/" + str(docMonth) + "/" +  str(docYear)+'</date>\n')
             f.write('<newsFrom>\n')
+            f.write('<from>'+ placeOfOrigin +'</from>\n')
+            f.write('<date>'+str(docDay) + "/" + str(docMonth) + "/" +  str(docYear)+'</date>\n')
             f.write('<transc>'+transcription+'</transc>\n')
+            f.write('<position>1</position>\n')
             f.write('</newsFrom>\n')
             f.write('</newsHeader>\n')
             f.write('</newsDocument>\n')
+            count+=1
+            # clean scren 
+            print(chr(27) + "[2J")
+            # processing count
+            print('Documents without XML processed: ' + str(count))
         f.write('</news>')
-
 
 # Write corpus file
 def create_rough_xml():
     global mydb
     with open(filenametmp, 'w') as f:
-        currentTime()
+        current_time=currentDateAndTime()
         # Header content of the xml file
         def printheader():
             f.write('<?xml version="1.0"?>\n')
@@ -262,8 +290,8 @@ def create_rough_xml():
             f.write('\txsi:noNamespaceSchemaLocation="news.xsd">\n\n')
 
             # f.write('<news>\n')
-            f.write('<xmlCorpusDate>' + current_date + '</xmlCorpusDate>\n')
-            f.write('<xmlCorpusTime>' + current_time + '</xmlCorpusTime>\n')
+            f.write('<xmlCorpusDate>' + current_time[0] + '</xmlCorpusDate>\n')
+            f.write('<xmlCorpusTime>' + current_time[1] + '</xmlCorpusTime>\n')
            
         try:
             mydb
@@ -275,13 +303,9 @@ def create_rough_xml():
             printheader()
 
             # define list with documents which do not contain XML
-            global docsWithXML
-            docsWithXML=list()
+            global docsWithXML            
             global docsMaybeWithoutXML
-            docsMaybeWithoutXML=list()
             global docsWithoutXML
-            docsWithoutXML=list()
-            
             allDocs=list()
             
             for x in myresult:
@@ -304,7 +328,6 @@ def create_rough_xml():
             mydb
             mycursor = mydb.cursor()
             mycursor.execute(qGetTranscriptions)
-
             myresult = mycursor.fetchall()
 
             if includeNoXMLDocs is True:
@@ -423,7 +446,7 @@ def fix_NewsDocument():
         f.write(prettyxml)
 
 def add_ArchivalProperties():
-    global prettyxml, mydb
+    global prettyxml, mydb, totalDocumentsCount
 
     # Getting repositories dictionary
     repoDict = json.load(open("repositoriesDict.txt"))
@@ -456,14 +479,14 @@ def add_ArchivalProperties():
             myresult1 = mycursor1.fetchall()
             volume=str(myresult1[0][0])
 
-            print(repository)
-            print(collection)
-            print(volume)
-
             prettyxml = prettyxml.replace('<docid>'+docId+'</docid>', '<docid>'+docId+'</docid><repository>'+repository+'</repository><collection>'+collection+'</collection><volume>'+volume+'</volume>', 1)
-            # input('')
             count+=1
+            # clean scren 
+            # print("\b" * len(message), end="", flush=True)
+            print(chr(27) + "[2J")
+            # processing count
             print('Documents processed: ' + str(count))
+            totalDocumentsCount=str(count)
         
     with open(filename, 'w') as f:
         f.write(prettyxml)
@@ -485,6 +508,7 @@ def finalizeXmlCorpus():
 
 # add geographical coordinates to xml corpus
 def addGeoCoordToXml():
+    loadGeoLocationsFile()
     print('- Adding Geographical Locations to XML- please wait...')
     tree = ET.parse(filename)
     root = tree.getroot()
@@ -507,19 +531,26 @@ def addGeoCoordToXml():
                     city = city.split(' ', 1)[0]
                 else:
                     pass     
-                getGeoCoordinates(city)
+                geocoord=getGeoCoordinates(city)
+                latitude=geocoord[0]
+                longitude=geocoord[1]
+                print(longitude)
 
-                if longitude and longitude:
+
+                if latitude and longitude:
                     locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
                     x.append(locationTag)
         else:
             pass
         count+=1
+        # clean scren 
+        # print(chr(27) + "[2J")
+        # processing count
         print('Hubs places: ' + str(count))
 
     count=0
     for x in root.iter('from'):
-        
+        print("qui")
         # print(x.text)
         city = x.text
         # Removing hub/from/plTransit value
@@ -536,14 +567,20 @@ def addGeoCoordToXml():
                     city = city.split(' ', 1)[0]
                 else:
                     pass     
-                getGeoCoordinates(city)
+                geocoord=getGeoCoordinates(city)
+                latitude=geocoord[0]
+                longitude=geocoord[1]
+                print("From"  +longitude)
 
-                if longitude and longitude:
+                if latitude and longitude:
                     locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
                     x.append(locationTag)
         else:
             pass
         count+=1
+        # clean scren 
+        # print(chr(27) + "[2J")
+        # processing count
         print('News places: ' + str(count))
 
     count=0
@@ -564,49 +601,71 @@ def addGeoCoordToXml():
                     city = city.split(' ', 1)[0]
                 else:
                     pass     
-                getGeoCoordinates(city)
+                geocoord=getGeoCoordinates(city)
+                latitude=geocoord[0]
+                longitude=geocoord[1]
 
-                if longitude and longitude:
+                if latitude and longitude:
                     locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
                     x.append(locationTag)
         else:
             pass
         count+=1
+        # clean scren 
+        # print(chr(27) + "[2J")
+        # processing count
         print('Place of Transit places: ' + str(count))
+    
+    # Update location dictionary file
+    with open(locationDictFile, 'w') as f:
+        f.write(json.dumps(locationDict))
+        f.close()
+
+    # Parse it
+    formattedJson = jsbeautifier.beautify_file(locationDictFile)
+    with open(locationDictFile, 'w') as f:
+        f.write(formattedJson)
+        f.close()
 
     tree.write('xml-corpus-geo.xml', encoding="UTF-8")
 
 #### RUN
-
-test_connection()
-print('Connection to DB ok!')
-print('')
-print('Loading..')
-create_rough_xml()
-print('- Rough XML ok!')
-##check_formatted_xml()
-fix_NewsDocument()
-fix_newsHeader()
-add_ArchivalProperties()
-print('')
-print('- News Document and News Header ok!')
-print('')
-if includeNoXMLDocs is True:
-    createXmlForDocsWithoutXml()
-    print('- Included documents without XML ok!')
+def main():
+    test_connection()
+    print('Connection to DB ok!')
     print('')
-print('')
-finalizeXmlCorpus()
-check_formatted_xml()
-print('- XML Corpus finalized ok!!')
-print('')
-print('Adding geo coordinates... this could take time!')
-addGeoCoordToXml()
-print('- Added geo coordinates attributes! - check xml-corpus-geo.xml')
-print('')
+    print('Loading..')
+    create_rough_xml()
+    print('- Rough XML ok!')
+    ##check_formatted_xml()
+    fix_NewsDocument()
+    fix_newsHeader()
+    print('')
+    print('- News Document and News Header ok!')
+    print('')
+    if includeNoXMLDocs is True:
+        createXmlForDocsWithoutXml()
+        print('- Included documents without XML ok!')
+        print('')
+    print('')
+    add_ArchivalProperties()
+    finalizeXmlCorpus()
+    check_formatted_xml()
+    print('- XML Corpus finalized ok!!')
+    print('')
+    print('Adding geo coordinates... this could take time!')
+    addGeoCoordToXml()
+    print('- Added geo coordinates attributes! - check xml-corpus-geo.xml')
+    print('')
+    print('Total documents added:'+totalDocumentsCount)
+    print('')
+    print('DONE')
+    ##finalizeXmlCorpus()
 
-print('DONE')
-##finalizeXmlCorpus()
+if __name__ == "__main__":
+    start_time = time.time()
+    main()
+    print("--- %s seconds ---" % (time.time() - start_time))
 
 
 
