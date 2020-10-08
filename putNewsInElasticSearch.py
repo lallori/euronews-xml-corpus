@@ -20,16 +20,21 @@ import unicodedata
 from geopy.geocoders import Nominatim
 import os.path
 import time
+import jsbeautifier
 
 ### FILES SECTION
 # xml file generated from MIA
 xmlFilename='xml-corpus-geo.xml'
+# xmlFilename='prova.xml'
+locationDictFile = "locationDict.txt"
 
 ### ELASTICSEARCH INDEXES SECTION
 # Json filename with ES puts (can be changed according to casestudy)
-jsonFilename='1600experiment.json'
+# jsonFilename='1600experiment.json'
+jsonFilename='all_news.json'
 # Index name (can be changed according to casestudy) 
-esindex='1600experiment'
+#esindex='1600experiment'
+esindex='prova2'
 
 # Index mapping
 mapping ={
@@ -37,6 +42,15 @@ mapping ={
       "properties":{
          "newsId":{
             "type":"text"
+         },
+         "repository":{
+            "type":"keyword"
+         },
+         "collection":{
+            "type":"keyword"
+         },
+         "volume":{
+            "type":"keyword"
          },
          "miaDocId":{
             "type":"keyword"
@@ -69,8 +83,23 @@ mapping ={
                }
             }
          },
+         "plTransit":{
+            "properties":{
+               "date":{
+                  "type":"date",
+                  "format":"dd/MM/yyyy"
+               },
+               "location":{
+                  "type":"geo_point"
+               },
+               "placeName":{
+                  "type":"text"
+               }
+            }
+         },
          "transcription":{
-            "type":"text"
+            "type":"text", 
+            "fielddata": True
          },
          "transcriptionk":{
             "type":"keyword"
@@ -87,6 +116,9 @@ documentId=int()
 miaDocId=""
 # newsId is mapDocId+position
 newsId=""
+repository=""
+collection=""
+volume=""
 hubDate=""
 hubPlaceLat=""
 hubPlaceLon=""
@@ -96,13 +128,18 @@ fromDate=""
 fromPlaceLat=""
 fromPlaceLon=""
 fromPlaceName=""
+plTransitDate=""
+plTransitName=""
+plTransitLat=""
+plTransitLon=""
 transcription=""
 newsPosition=""
 locationDict = {}
 longitude = ""
 latitude = ""
 es=Elasticsearch()
-esDoc={}
+esDoc = {}
+esDocComplete = esDocNoHubNoFromLoc = esDocNoHubLoc = esDoc = {}
 
 ### FUNCTIONS
 # -- UTILS --
@@ -131,10 +168,13 @@ def documentPutElasticsearch():
     # Define Json Structure
     newsId=miaDocId+"-"+newsPosition
     print(newsId + miaDocId +  fromDate + fromPlaceLat + fromPlaceLon + fromPlaceName)
-    # esDoc is defined in the variables section above
+    # esDoc mapping is defined in the variables section above
     esDoc = {
         "newsId":newsId,
         "miaDocId":miaDocId,
+        "repository":repository,
+        "collection":collection,
+        "volume":volume,
         "hub":{
             "date": hubDate,
             "location": {
@@ -152,40 +192,120 @@ def documentPutElasticsearch():
             "placeName":fromPlaceName
 
         },
+        "plTransit":{
+            #To be changed
+            "date": plTransitDate,
+            "location": {
+                "lat": plTransitLat,
+                "lon": plTransitLon
+            },
+            "placeName":plTransitName
+
+        },
         "transcription": transcription,
         "transcriptionk": transcription,
         "newsPosition":newsPosition
     }
+
+    if hubPlaceLat is not None:
+        try:
+            float(hubPlaceLat)
+            if hubPlaceLon is not None:
+                try:
+                    float(hubPlaceLon)
+                    pass
+                except ValueError:
+                    del esDoc['hub']['location']
+            else:
+                del esDoc['hub']['location']
+        except ValueError:
+            del esDoc['hub']['location']
+    else:
+        del esDoc['hub']['location']
+
+
+    if fromPlaceLat is not None:
+        try:
+            float(fromPlaceLat)
+            if fromPlaceLon is not None:
+                try:
+                    float(fromPlaceLon)
+                    pass
+                except ValueError:
+                    del esDoc['from']['location']
+            else:
+                del esDoc['from']['location']
+        except ValueError:
+            del esDoc['from']['location']
+    else:
+        del esDoc['from']['location']
+
+    if plTransitLat is not None:
+        try:
+            float(plTransitLat)
+            if plTransitLon is not None:
+                try:
+                    float(plTransitLon)
+                    pass
+                except ValueError:
+                    del esDoc['plTransit']['location']
+            else:
+                del esDoc['plTransit']['location']
+        except ValueError:
+            del esDoc['plTransit']['location']
+    else:
+        del esDoc['plsTransit']['location']
+
+    if plTransitDate is not None:
+        try:
+            if not plTransitDate:
+                del esDoc['plTransit']['date']
+        except ValueError:
+            del esDoc['plTransit']['date']
+    else:
+        del esDoc['plTransit']['date']
+    
+    # if plTransitName is not None:
+    #     try:
+    #         if not plTransitName:
+    #             del esDoc['plTransit']['name']
+    #     except ValueError:
+    #         del esDoc['plTransit']['name']
+    # else:
+    #     del esDoc['plTransit']['name']
+
+    # print(str(esDoc))
+    # print()
+    # input('break')
+
     res = es.index(index=esindex, id=documentId, body=esDoc)
     print(str(res))
+    
     transcription=""
+
 
 # -- GEOLOCATIONS --
 def loadGeoLocationsFile():
     global locationDict
-    if os.path.isfile('./locationDict.txt'):
-        dictionary = json.load(open('locationDict.txt'))
+    if os.path.isfile('./'+locationDictFile):
+        dictionary = json.load(open(locationDictFile))
         locationDict = dictionary
     else:
         locationDict = {}
 
 def getGeoCoordinates(city):
-    global longitude
-    global latitude
     global locationDict
-
     geolocator = Nominatim(user_agent='myapplication')
     if city in locationDict:
         if 'lat' in locationDict[city]:
             latitude=locationDict[city]['lat']
         else:
-            pass
+            latitude = ""
         if 'long' in locationDict[city]:
             longitude=locationDict[city]['long']
         else:
-            pass
+            longitude = ""
     else:
-        #print(city)
         locationDict[city] = {}
         location = geolocator.geocode(city)
         if location != None:    
@@ -195,7 +315,9 @@ def getGeoCoordinates(city):
             locationDict[city]['lat'] = latitude
             locationDict[city]['long'] = longitude
         else:
-            pass
+            latitude = ""
+            longitude = ""
+    return latitude, longitude
 
 # Writes a Json file for Elasticsearch (just for test -- this could contain encoding problems)
 def writeJson():
@@ -205,6 +327,7 @@ def writeJson():
     if esDoc.get(transcription) is not None:
         print("PRIMA " + esDoc.get(transcription))
 
+    print(str(esDoc))
     # writing JSON object to file
     with open(jsonFilename, 'a') as f:
         f.write('\n')
@@ -215,7 +338,7 @@ def writeJson():
 
 ### -- MAIN --
 def populateElasticsearchIndex():
-    global esDoc,locationDict,documentId,miaDocId,hubDate,hubTranscription,hubPlaceLat,hubPlaceLon,hubPlaceName,newsId,fromDate,fromPlaceLat,fromPlaceLon,fromPlaceName,transcription,newsPosition
+    global esDoc,locationDict,documentId,miaDocId,repository,collection,volume,hubDate,hubTranscription,hubPlaceLat,hubPlaceLon,hubPlaceName,newsId,fromDate,fromPlaceLat,fromPlaceLon,fromPlaceName,transcription,newsPosition,plTransitDate, plTransitName, plTransitLat, plTransitLon
     # Inizialize ES index
     createIndexElasticsearch()
     # Start processing XML to get data
@@ -227,6 +350,11 @@ def populateElasticsearchIndex():
     ### MIA doc ID ###
     for document in root.iter('newsDocument'):
         miaDocId=document.find('docid').text
+        
+        repository=document.find('repository').text
+        collection=document.find('collection').text
+        volume=document.find('volume').text
+
         print(miaDocId)
         ### Header section ###
         for header in document.iter('newsHeader'):
@@ -275,13 +403,21 @@ def populateElasticsearchIndex():
             print('--start---')
             for x in header.iter('hub'):
                 hubPlaceName=x.find('placeName').text
-                hubLocation=x.find('location')
-                if hubLocation is None:
+                # hubLocation=x.find('location')
+                
+                # input('break')
+                if hubPlaceName is None:
                     pass
+                    # print('empty')
+                    # input('break')
                 else:
-                    hubPlaceLat=hubLocation.get('lat')
-                    hubPlaceLon=hubLocation.get('lon')
-                    print("HUB:  "+hubDate+":" +hubPlaceName)
+                    geocoord=getGeoCoordinates(hubPlaceName)
+                    latitude=geocoord[0]
+                    longitude=geocoord[1]
+                    hubPlaceLat=latitude
+                    hubPlaceLon=longitude
+                    print("HUB:  "+hubDate+":" +hubPlaceName+hubPlaceLat+hubPlaceLon)
+                    # input('break')
             
             ### From section ###
                 newsfrom = header.find('newsFrom')
@@ -310,7 +446,7 @@ def populateElasticsearchIndex():
                             fromPlaceName=x.find('placeName').text
                             if fromPlaceName is None:
                                 fromPlaceName = hubPlaceName
-                                fromLocation = hubLocation
+                                # fromLocation = hubPlaceName
                                 fromPlaceLat = hubPlaceLat
                                 fromPlaceLon = hubPlaceLon
                             else:
@@ -320,10 +456,13 @@ def populateElasticsearchIndex():
                                     if x == "xxx" or x == "[NA]" or x == "NA" or x == "na":
                                         x = hubPlaceName
                                     fromPlaceName=x
-                                    getGeoCoordinates(x)
-                                    print(x + ": lat-"+latitude+" long-"+longitude)
+                                    geocoord=getGeoCoordinates(x)
+                                    latitude=geocoord[0]
+                                    longitude=geocoord[1]
+                                    print(x + ": lat "+latitude+" long "+longitude)
                                     fromPlaceLat=latitude
                                     fromPlaceLon=longitude
+
                                     #Get Date From Values
                                     #---> check if fromDate is none.
                                     i=0
@@ -348,39 +487,106 @@ def populateElasticsearchIndex():
                                                 print(fromDate)
                                             #fill with zeros the date if wrong format (ex. 6/6/1534 becomes 06/06/1534)
                                             fromDate='/'.join(x.zfill(2) for x in fromDate.split('/'))
-                                    day,month,year = fromDate.split('/')
-
-                                    isValidDate = True
-                                    try :
-                                        datetime.datetime(int(year),int(month),int(day))
+                                    
+                                    try: 
+                                        day,month,year = fromDate.split('/')
+                                        isValidDate = True
+                                        try :
+                                            datetime.datetime(int(year),int(month),int(day))
+                                        except ValueError :
+                                            isValidDate = False
+                                        if(isValidDate) :
+                                            # Date valid
+                                            pass
+                                        else :
+                                            # Date invalid - put hub date
+                                            # fromDate="01/01/0001"
+                                            fromDate=hubDate
                                     except ValueError :
-                                        isValidDate = False
-                                    if(isValidDate) :
-                                        # Date valid
-                                        pass
-                                    else :
-                                        # Date invalid - put hub date
-                                        # fromDate="01/01/0001"
                                         fromDate=hubDate
+
+                                    # Get plTransitDate
+                                    transitDate=newsFrom.find('plTransitDate')
+                                    if transitDate is None:
+                                        pass
+                                    else:
+                                        plTransitDate=existstr(newsFrom.find('plTransitDate').text)
+                                        plTransitDate=plTransitDate.strip()
+                                        if ' ' in plTransitDate:
+                                            plTransitDate = plTransitDate.split(' ', 1)[0]
+                                            print(plTransitDate)
+                                        if ';' in plTransitDate:
+                                                plTransitDate = plTransitDate.replace(";", " ")
+                                                plTransitDate = plTransitDate.split(' ', 1)[0]
+                                                print(plTransitDate)
+                                    #fill with zeros the date if wrong format (ex. 6/6/1534 becomes 06/06/1534)
+                                    plTransitDate='/'.join(x.zfill(2) for x in plTransitDate.split('/'))
+                                    
+                                    try: 
+                                        day,month,year = plTransitDate.split('/')
+                                        isValidDate = True
+                                        try :
+                                            datetime.datetime(int(year),int(month),int(day))
+                                        except ValueError :
+                                            isValidDate = False
+                                        if(isValidDate) :
+                                            # Date valid
+                                            pass
+                                        else :
+                                            # Date invalid - putting default value - this has to be changed
+                                            plTransitDate=""
+                                    except ValueError :
+                                        plTransitDate=""
+
+                                    # Get plTransit Values (To be finished)
+                                    for x in newsFrom.iter('plTransit'):
+                                        plTransitName=x.find('placeName').text
+                                        if plTransitName is None:
+                                            plTransitName=""
+                                        else:
+                                            placeList=plTransitName.split(',')
+                                            for x in placeList:
+                                                x=x.strip()
+                                                if x == "xxx" or x == "[NA]" or x == "NA" or x == "na":
+                                                    x = hubPlaceName
+                                                plTransitName=x
+                                                geocoord=getGeoCoordinates(x)
+                                                latitude=geocoord[0]
+                                                longitude=geocoord[1]
+                                                print('########PLTRANSIT')
+                                                print(plTransitName + ": lat "+latitude+" long "+longitude)
+                                                plTransitLat=latitude
+                                                plTransitLon=longitude
+
                                     # Get Trascription Values
                                     transcription=existstr(newsFrom.find('transc').text)
                                     print("TRANSCRIPTION: " + transcription)
+                                    print("DOCID:#################################################### " +miaDocId)
                                     # Get Position Value
                                     newsPosition=(newsFrom.find('position'))
                                     if newsPosition is None:
                                         newsPosition="1"
                                     else:
                                         newsPosition=existstr(newsFrom.find('position').text)
-                                    writeJson()
+                                    # writeJson()
                                     documentPutElasticsearch()
+                                    plTransitDate=plTransitName=plTransitLat=plTransitLon=""
                                     print('--end---')
                                     documentId=documentId+1
                                     print(documentId)
                                     # print(locationDict)                     
                             i=i+1
-    with open('locationDict.txt', 'w') as f:
+                        
+    # Update location dictionary file
+    with open(locationDictFile, 'w') as f:
         f.write(json.dumps(locationDict))
-        f.close()                        
+        f.close()
+
+    # Parse it
+    formattedJson = jsbeautifier.beautify_file(locationDictFile)
+    with open(locationDictFile, 'w') as f:
+        f.write(formattedJson)
+        f.close()                       
 
 
 def main():
