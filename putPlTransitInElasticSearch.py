@@ -500,13 +500,90 @@ def populate_es_index():
                         stage
 
                     
-                    # # Create MIDDLE TRANSIT network
+                    # # Create MIDDLE TRANSIT network TODO
                     for findplaceoftransit in placeoftransitlist:
-                        if findplaceoftransit != placeoftransitlist[0] and findplaceoftransit != placeoftransitlist[-1]:
+                        position=placeoftransitlist.index(findplaceoftransit)
+                        if findplaceoftransit != placeoftransitlist[-1]:
+                            # Source
+                            try:
+                                srcPlTransitDate=findplaceoftransit.attrib['date']
+                            except:
+                                srcPlTransitDate=newsfrom.find('date')
                             
+                            try:   
+                                stage=findplaceoftransit.attrib['stage']
+                            except:
+                                stage=""
 
+                            if 'unsure' in findplaceoftransit.attrib:
+                                srcDateUnsure=True
+                                if srcDateUnsure:
+                                    srcDateNotes=dateunsuremsg
+                            else:
+                                srcDateUnsure=""
+                                srcDateNotes=""
+                            try:
+                                srcPlTransitName=findplaceoftransit.text
+                            except:
+                                try:
+                                    srcPlTransitName=newsfrom.find('from').text
+                                except:
+                                    srcPlTransitName
 
-                    input('break')
+                            coordinates=get_geo_coordinates(srcPlTransitName)
+                            srcPlTransitLat=coordinates[0]
+                            srcPlTransitLon=coordinates[1]
+                            # Destination
+                            nextposition=position+1
+                            nextplaceoftransit=placeoftransitlist[nextposition]
+                            print()
+                            try:
+                                destPlTransitDate=nextplaceoftransit.attrib['date']
+                            except:
+                                destPlTransitDate=newsfrom.find('date')
+                            
+                            try:   
+                                stage=nextplaceoftransit.attrib['stage']
+                            except:
+                                stage=""
+
+                            if 'unsure' in nextplaceoftransit.attrib:
+                                destDateUnsure=True
+                                if destDateUnsure:
+                                    destDateNotes=dateunsuremsg
+                            else:
+                                destDateUnsure=""
+                                destDateNotes=""
+                            try:
+                                destPlTransitName=nextplaceoftransit.text
+                            except:
+                                try:
+                                    destPlTransitName=newsfrom.find('from').text
+                                except:
+                                    destPlTransitName
+
+                            coordinates=get_geo_coordinates(destPlTransitName)
+                            destPlTransitLat=coordinates[0]
+                            destPlTransitLon=coordinates[1]
+
+                            # Crating ES Document for Middle Transit
+                            try:
+                                put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
+                                                    srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
+                                                    destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
+                                                    stage ,transcription)
+                            except:
+                                print('Error in creating startpoing')
+                                input('break - want to continue?')
+
+                            del srcPlTransitDate,srcDateUnsure,\
+                                srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
+                                destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
+                                stage
+                            
+                        else:
+                            pass
+
 
 
 def main():
