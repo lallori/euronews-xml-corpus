@@ -1,5 +1,8 @@
 #!/usr/bin/python3.6
 # Creates the xml to catch the placeOfTransit
+# Creates the mapping on Elasticsearch
+# TODO: add a field which specify the hub so that we can filter using the hubname
+
 
 from io import open
 import xml.etree.cElementTree as ET
@@ -18,8 +21,8 @@ import os.path
 import jsbeautifier
 import time
 
-# xmlcorpus="xml_corpus.xml"
-xmlcorpus="prova.xml"
+xmlcorpus="xml_corpus.xml"
+# xmlcorpus="prova.xml"
 newstransitxmlcorpusfile="xml-corpus-plTransit.xml"
 location_dict_file = "locationDict.txt"
 
@@ -33,11 +36,13 @@ def existstr(s):
 
 def check_place(cplace):
     comma=","
+    cplace=cplace.lstrip()
+    cplace=cplace.rstrip()
     if cplace != None:
         if cplace != 'na' and cplace != 'NA' and cplace !='Na' and cplace !='[loss]' and cplace !='[unsure]' and cplace !='xxx':
             if comma in cplace:
-                cplace = cplace.replace(comma, " ")
-                cplace = cplace.split(' ', 1)[0]
+                #cplace = cplace.replace(comma, " ")
+                cplace = cplace.split(', ', 1)[0]
             else:
                 pass     
     else:
@@ -130,7 +135,7 @@ def create_xml_for_place_of_transit():
                                 pltransitdate = newsfrom.find('date').text
                                 pltransitdate=check_date(pltransitdate,"pltransitdate",newsfromdate)
                             findPlaceTransit.set('date',pltransitdate)
-                            findPlaceTransit.set('dateunsure','yes')
+                            findPlaceTransit.set('dateunsure','y')
                             findPlaceTransit.set('stage','1')
                         else:
                             for pltransitdate in newsfrom.findall('plTransitDate'):
@@ -284,7 +289,7 @@ def put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
     }
 
     print(str(esDoc))
-    input('break')
+    # input('break')
 
     res = es.index(index=esindexname, body=esDoc)
     print(str(res))
@@ -306,8 +311,11 @@ def populate_es_index():
          ### Header section ###
         for header in document.iter('newsHeader'):
             # Get Hub Name
-            hubfrom=header.find('hub').text
-            
+            try:
+                hubfrom=header.find('hub').text
+            except:
+                print('ERROR: No Hub Name in document: ' + miaDocId)
+                sys.exit()
             # Get Hub date
             hubdate=header.find('date')
             # print(miaDocId)
@@ -337,7 +345,7 @@ def populate_es_index():
                     newsposition=newsfrom.find('position').text
                     newsId=miaDocId+"-"+newsposition
                 except:
-                    print('ERROR - newsprosition is not present in document: ' + miaDocId)
+                    print('ERROR - news position field is not present in document: ' + miaDocId)
                     sys.exit()
                 # get date
                 newsfromdate=newsfrom.find('date')
@@ -354,79 +362,82 @@ def populate_es_index():
                 placeoftransitlist = newsfrom.findall('plTransit')
                 
                 if len(placeoftransitlist) == 0:
-                    print('vuoto')
+                    print('No place of transit in this document: ' + newsId)
                     pass
                 else:
-                    # STARTPOINT - Source Section (it is obviously newsfrom)
-                    try:
-                        srcPlTransitName=check_place(newsfrom.find('from').text)
-                    except:
-                        print('ERROR')
-                        sys.exit()
-
-                    coordinates=get_geo_coordinates(srcPlTransitName)
-                    srcPlTransitLat=coordinates[0]
-                    srcPlTransitLon=coordinates[1]
-
-                    try:
-                        srcPlTransitDate=newsfromdate
-                    except:
-                        pass
-
-                    try: 
-                        srcDateUnsure=newsfrom.find('dateUnsure').text
-                        if srcDateUnsure:
-                            srcDateNotes=dateunsuremsg                     
-                    except:
-                        srcDateUnsure=""
-                        srcDateNotes=""
-
-                    # STARTPOINT - Destination Section 
-                    firstplaceoftransit = placeoftransitlist[0] # get first item of list
-                    try:
-                        destPlTransitDate=firstplaceoftransit.attrib['date']
-                    except:
-                        destPlTransitDate=newsfrom.find('date')
-                    
-                    # try:   
-                    #     stage=firstplaceoftransit.attrib['stage']
+                    # # STARTPOINT - Source Section (it is obviously newsfrom)
+                    # try:
+                    #     srcPlTransitName=check_place(newsfrom.find('from').text)
+                    #     print('PLACE'+ check_place(newsfrom.find('from').text))
                     # except:
-                    #     stage=""
-                    stage="0"
+                    #     print('ERROR: newsFrom place is mismatched at document: ' + newsId)
+                    #     sys.exit()
 
-                    if 'unsure' in firstplaceoftransit.attrib:
-                        destDateUnsure=True
-                        if destDateUnsure:
-                            destDateNotes=dateunsuremsg
-                    else:
-                        destDateUnsure=""
-                        destDateNotes=""
-                    try:
-                        destPlTransitName=firstplaceoftransit.text
-                    except:
-                        try:
-                            destPlTransitName=newsfrom.find('from').text
-                        except:
-                            destPlTransitName
+                    # coordinates=get_geo_coordinates(srcPlTransitName)
+                    # srcPlTransitLat=coordinates[0]
+                    # srcPlTransitLon=coordinates[1]
 
-                    coordinates=get_geo_coordinates(destPlTransitName)
-                    destPlTransitLat=coordinates[0]
-                    destPlTransitLon=coordinates[1]
+                    # try:
+                    #     srcPlTransitDate=newsfromdate
+                    # except:
+                    #     pass
 
-                    # Crating ES Document for STARTPOINT
-                    try:
-                        put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
-                                            srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
-                                            destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
-                                            stage ,transcription)
-                    except:
-                        print('Error in creating startpoing')
-                        input('break - want to continue?')
+                    # try: 
+                    #     srcDateUnsure=newsfrom.find('dateUnsure').text
+                    #     if srcDateUnsure:
+                    #         srcDateUnsure=True
+                    #         srcDateNotes=dateunsuremsg                     
+                    # except:
+                    #     srcDateUnsure=""
+                    #     srcDateNotes=""
+
+                    # # STARTPOINT - Destination Section 
+                    # firstplaceoftransit = placeoftransitlist[0] # get first item of list
+                    # # print('PLACE'+ check_place(firstplaceoftransit.text))
+                    # try:
+                    #     destPlTransitDate=firstplaceoftransit.attrib['date']
+                    # except:
+                    #     destPlTransitDate=newsfrom.find('date')
+                    
+                    # # try:   
+                    # #     stage=firstplaceoftransit.attrib['stage']
+                    # # except:
+                    # #     stage=""
+                    # stage="0"
+
+                    # if 'unsure' in firstplaceoftransit.attrib:
+                    #     destDateUnsure=True
+                    #     if destDateUnsure:
+                    #         destDateNotes=dateunsuremsg
+                    # else:
+                    #     destDateUnsure=""
+                    #     destDateNotes=""
+                    # try:
+                    #     destPlTransitName=check_place(firstplaceoftransit.text)
+                    # except:
+                    #     try:
+                    #         destPlTransitName=check_place(newsfrom.find('from').text)
+                    #     except:
+                    #         destPlTransitName
+
+                    # coordinates=get_geo_coordinates(destPlTransitName)
+                    # destPlTransitLat=coordinates[0]
+                    # destPlTransitLon=coordinates[1]
+
+                    # # Crating ES Document for STARTPOINT
+                    # try:
+                    #     put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
+                    #                         srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
+                    #                         destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
+                    #                         stage ,transcription)
+                    # except:
+                    #     print('Error in creating STARTPOINT, newsId: ' + newsId)
+                    #     input('break - want to continue?')
                 
-                    del srcPlTransitDate,srcDateUnsure,\
-                        srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
-                        destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
-                        stage
+                    # del srcPlTransitDate,srcDateUnsure,\
+                    #     srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
+                    #     destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
+                    #     stage
                     
                     # ENDPOINT - Source Section
                     lastplaceoftransit = placeoftransitlist[-1] # get last item of list
@@ -449,10 +460,10 @@ def populate_es_index():
                         srcDateUnsure=""
                         srcDateNotes=""
                     try:
-                        srcPlTransitName=lastplaceoftransit.text
+                        srcPlTransitName=check_place(lastplaceoftransit.text)
                     except:
                         try:
-                            srcPlTransitName=newsfrom.find('from').text
+                            srcPlTransitName=check_place(newsfrom.find('from').text)
                         except:
                             srcPlTransitName
 
@@ -464,8 +475,9 @@ def populate_es_index():
                     try:
                         destPlTransitName=check_place(header.find('hub').text)
                     except:
-                        print('ERROR')
-                        sys.exit()
+                       print('Error in creating ENDPOINT, newsId: ' + newsId)
+                       input('break - want to continue?')
+                    #    sys.exit()
 
                     coordinates=get_geo_coordinates(destPlTransitName)
                     destPlTransitLat=coordinates[0]
@@ -479,19 +491,20 @@ def populate_es_index():
                     try: 
                         destDateUnsure=header.find('dateUnsure').text
                         if destDateUnsure:
+                            destDateUnsure=True   
                             destDateNotes=dateunsuremsg                     
                     except:
                         destDateUnsure=""
                         destDateNotes=""
 
-                    # Crating ES Document for STARTPOINT
+                    # Crating ES Document for ENDPOINT
                     try:
                         put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
                                             srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
                                             destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
                                             stage ,transcription)
                     except:
-                        print('Error in creating startpoing')
+                        print('Error in creating ENDPOINT, newsId: ' + newsId)
                         input('break - want to continue?')
 
                     del srcPlTransitDate,srcDateUnsure,\
@@ -523,10 +536,10 @@ def populate_es_index():
                                 srcDateUnsure=""
                                 srcDateNotes=""
                             try:
-                                srcPlTransitName=findplaceoftransit.text
+                                srcPlTransitName=check_place(findplaceoftransit.text)
                             except:
                                 try:
-                                    srcPlTransitName=newsfrom.find('from').text
+                                    srcPlTransitName=check_place(newsfrom.find('from').text)
                                 except:
                                     srcPlTransitName
 
@@ -555,10 +568,10 @@ def populate_es_index():
                                 destDateUnsure=""
                                 destDateNotes=""
                             try:
-                                destPlTransitName=nextplaceoftransit.text
+                                destPlTransitName=check_place(nextplaceoftransit.text)
                             except:
                                 try:
-                                    destPlTransitName=newsfrom.find('from').text
+                                    destPlTransitName=check_place(newsfrom.find('from').text)
                                 except:
                                     destPlTransitName
 
@@ -573,7 +586,7 @@ def populate_es_index():
                                                     destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
                                                     stage ,transcription)
                             except:
-                                print('Error in creating startpoing')
+                                print('Error in creating MIDDLESTAGE, newsId: ' + newsId + '  ' + nextplaceoftransit.text)
                                 input('break - want to continue?')
 
                             del srcPlTransitDate,srcDateUnsure,\
@@ -588,7 +601,7 @@ def populate_es_index():
 
 def main():
     # time.sleep(2)
-    #create_xml_for_place_of_transit()
+    create_xml_for_place_of_transit()
     create_es_index()
     populate_es_index()
 
