@@ -20,6 +20,8 @@ from io import StringIO
 import xml.dom.minidom
 from datetime import datetime
 import re
+import operator
+
 
 # JSON Section
 import json
@@ -46,10 +48,11 @@ else:
 
 # SQL Queries
 # Documents list to Exclude from queries
-documentListToExclude="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50447,50449,50450,50454,50863,50879,51452,51495,51610,51611,51629,51742,51750,52065,52079"
+documentListToExclude="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50431,50447,50449,50450,50454,50863,50879,51110,51452,51495,51610,51611,51629,51742,51750,52065,52079"
+putExcludedDocs="1"
 
 # Test query do not use
-#qGetDocumentsExp1600="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
+qGet1600="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
 
 # Query for All news
 qGetAllNews="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
@@ -61,6 +64,7 @@ qGetAvvisi="select documentEntityId, transcription from tblDocTranscriptions whe
 qGetNewOther="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News Other' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
 
 qGetDocuments=qGetAvvisi
+# qGetDocuments=qGet1600
 
 
 # Files involved
@@ -226,6 +230,57 @@ def loadGeoLocationsFile():
         locationDict = {}
 
 
+def put_transcription_in_order(docId):
+    docId=str(docId)
+    print('docid= ' + docId)
+    try:
+        mydb = mysql.connector.connect(
+        host=myhost,
+        port=myport,
+        user=myuser,
+        passwd=mypasswd,
+        database=mydbname
+        )
+        mycursor = mydb.cursor() 
+        # print("Mysql connected")
+        # input('break')
+    except:
+        print('Connection to db failed')
+        sys.exit()
+
+    getTranscription='select uploadedFileId,transcription from tblDocTranscriptions where documentEntityId='
+
+    getTranscriptions=getTranscription+docId
+    mycursor.execute(getTranscriptions)
+
+    results = mycursor.fetchall()
+
+    folios=[] # create list
+    
+    for document in results:
+        uploadedFileId=document[0]
+        transcription=document[1]
+        # print(uploadedFileId)
+        getFolio='select folioNumber,rectoverso from tblUploadFilesFolios where uploadedFileId='
+        getFolio=getFolio+str(uploadedFileId)
+        mycursor.execute(getFolio)
+        folioprop = mycursor.fetchall()        
+        folioNumber=folioprop[0][0]
+        rectoverso=folioprop[0][1]
+        folios.append([folioNumber,rectoverso,uploadedFileId,transcription])
+        # print(str(folios))
+        # TODO check for null values and noNumb=1    
+
+    # print(str(folios))
+    sortedFolios=sorted(folios, key=operator.itemgetter(0, 1))
+    # print(str(sortedFolios))
+
+    orderedTransc=""
+    for record in sortedFolios:
+        orderedTransc=orderedTransc+record[3]
+    return orderedTransc
+
+
 def getGeoCoordinates(city):
     global locationDict
     geolocator = Nominatim(user_agent='myapplication')
@@ -350,7 +405,17 @@ def create_rough_xml():
                     f.write('<docid>'+str(x[0])+'</docid>\n')
                     f.write('\t\t'+x[1]+'\n')
                 f.write('</newsDocument>\n')
-                f.write('</news>\n')
+
+                 # Include excluded docs (not ordered transcr)
+                if putExcludedDocs == 1:
+                    docs_transcr_to_be_ordered = documentListToExclude.split (",")
+
+                    for docId in docs_transcr_to_be_ordered:
+                        xmltrascr=put_transcription_in_order(docId)
+                        f.write('\t\t'+xmltrascr+'\n')
+                    f.write('</news>\n')
+                else: 
+                    f.write('</news>\n')
 
             else:
                 for x in myresult:
@@ -358,7 +423,16 @@ def create_rough_xml():
                     f.write('<docid>'+str(x[0])+'</docid>\n')
                     f.write('\t\t'+x[1]+'\n')
 
-                f.write('</news>\n') 
+                # Include excluded docs (not ordered transcr)
+                if putExcludedDocs == 1:
+                    docs_transcr_to_be_ordered = documentListToExclude.split (",")
+
+                    for docId in docs_transcr_to_be_ordered:
+                        xmltrascr=put_transcription_in_order(docId)
+                        f.write('\t\t'+xmltrascr+'\n')
+                    f.write('</news>\n')
+                else:
+                    f.write('</news>\n') 
 
             # Print totals
             # print(len(allDocs))
