@@ -49,7 +49,7 @@ else:
 # SQL Queries
 # Documents list to Exclude from queries
 documentListToExclude="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50431,50447,50449,50450,50454,50863,50879,51110,51452,51495,51610,51611,51629,51742,51750,52065,52079"
-putExcludedDocs="1"
+putExcludedDocs=1
 
 # Test query do not use
 qGet1600="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
@@ -404,15 +404,18 @@ def create_rough_xml():
                     # put each entry in file (URI to be added)
                     f.write('<docid>'+str(x[0])+'</docid>\n')
                     f.write('\t\t'+x[1]+'\n')
-                f.write('</newsDocument>\n')
+                
 
                  # Include excluded docs (not ordered transcr)
                 if putExcludedDocs == 1:
                     docs_transcr_to_be_ordered = documentListToExclude.split (",")
 
                     for docId in docs_transcr_to_be_ordered:
+                        f.write('<newsDocument>\n')
+                        f.write('<docid>'+str(docId)+'</docid>\n')
                         xmltrascr=put_transcription_in_order(docId)
                         f.write('\t\t'+xmltrascr+'\n')
+                        f.write('</newsDocument>\n')
                     f.write('</news>\n')
                 else: 
                     f.write('</news>\n')
@@ -428,11 +431,15 @@ def create_rough_xml():
                     docs_transcr_to_be_ordered = documentListToExclude.split (",")
 
                     for docId in docs_transcr_to_be_ordered:
+                        f.write('<newsDocument>\n')
+                        f.write('<docid>'+str(docId)+'</docid>\n')
                         xmltrascr=put_transcription_in_order(docId)
                         f.write('\t\t'+xmltrascr+'\n')
+                        f.write('</newsDocument>\n')
                     f.write('</news>\n')
                 else:
                     f.write('</news>\n') 
+
 
             # Print totals
             # print(len(allDocs))
@@ -456,6 +463,9 @@ def check_formatted_xml():
         xml_to_check = f.read()
 
         try:
+            # remove empty newsDocuments
+            xml_to_check=xml_to_check.replace('<newsDocument>\n</newsDocument>','')
+
             etree.parse(StringIO(xml_to_check))
             print('XML well formed, syntax ok.')
 
@@ -479,7 +489,7 @@ def check_formatted_xml():
 def prettyXml():
     global prettyxml
     dom = xml.dom.minidom.parse(filename)
-    
+
     prettyxml = dom.toprettyxml()
 
     lines = prettyxml.split("\n")
@@ -529,6 +539,9 @@ def fix_NewsDocument():
         pass
     else:
         prettyxml = re.sub('</news>$','</newsDocument>\n</news>',prettyxml)
+    
+    # Remove empty newsDocument tags
+    prettyxml=prettyxml.replace('<newsDocument>\n</newsDocument>','')
 
     with open(filename, 'w') as f:
         f.write(prettyxml)
@@ -727,6 +740,7 @@ def main():
     print('- Rough XML ok!')
     ##check_formatted_xml()
     fix_NewsDocument()
+    input('break')
     fix_newsHeader()
     print('')
     print('- News Document and News Header ok!')
