@@ -47,23 +47,28 @@ else:
     exit()
 
 # SQL Queries
-# Documents list to Exclude from queries
-documentListToExclude="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50431,50447,50449,50450,50454,50863,50879,51110,51452,51495,51610,51611,51629,51742,51750,52065,52079"
+# Documents list to Exclude from queries (transcriptions should be reordered to create xml -- check function put_transcription_in_order() )
+all_docs_to_reorder_transcr="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50431,50447,50449,50450,50454,50863,50879,51110,51452,51495,51610,51611,51629,51742,51750,52065,52079,52644"
+docs_to_reorder_transcr_1575="9944,27231,27250,27154,27230,27263,27288,51452,51495,51610,51611,51629,51742,51750,52644"
+documents_to_process_separately=docs_to_reorder_transcr_1575
+# Set this to 1 if you want to include the above documents
 putExcludedDocs=1
 
 # Test query do not use
-qGet1600="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
+qGet1600="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
 # Query for All news
-qGetAllNews="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
+qGetAllNews="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
 # Query to Get Avvisi only
-qGetAvvisi="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
+qGetAvvisi="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
 # Query to Get News-other (to check condition typology)
-qGetNewOther="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News Other' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
+qGetNewOther="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News Other' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
-qGetDocuments=qGetAvvisi
+qGetNewsWithTimeSpan="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1575' or docModernYear = '1575') and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
+
+qGetDocuments=qGetNewsWithTimeSpan
 # qGetDocuments=qGet1600
 
 
@@ -232,7 +237,6 @@ def loadGeoLocationsFile():
 
 def put_transcription_in_order(docId):
     docId=str(docId)
-    print('docid= ' + docId)
     try:
         mydb = mysql.connector.connect(
         host=myhost,
@@ -242,8 +246,6 @@ def put_transcription_in_order(docId):
         database=mydbname
         )
         mycursor = mydb.cursor() 
-        # print("Mysql connected")
-        # input('break')
     except:
         print('Connection to db failed')
         sys.exit()
@@ -278,6 +280,12 @@ def put_transcription_in_order(docId):
     orderedTransc=""
     for record in sortedFolios:
         orderedTransc=orderedTransc+record[3]
+
+    # clean scren 
+    print(chr(27) + "[2J")
+    # processing count
+    print('--> Re-ordering transcriptions in documents')
+    print('Processing document: ' + docId)
     return orderedTransc
 
 
@@ -405,17 +413,14 @@ def create_rough_xml():
                     f.write('<docid>'+str(x[0])+'</docid>\n')
                     f.write('\t\t'+x[1]+'\n')
                 
-
                  # Include excluded docs (not ordered transcr)
                 if putExcludedDocs == 1:
-                    docs_transcr_to_be_ordered = documentListToExclude.split (",")
+                    docs_transcr_to_be_ordered = documents_to_process_separately.split (",")
 
                     for docId in docs_transcr_to_be_ordered:
-                        f.write('<newsDocument>\n')
                         f.write('<docid>'+str(docId)+'</docid>\n')
                         xmltrascr=put_transcription_in_order(docId)
                         f.write('\t\t'+xmltrascr+'\n')
-                        f.write('</newsDocument>\n')
                     f.write('</news>\n')
                 else: 
                     f.write('</news>\n')
@@ -428,18 +433,15 @@ def create_rough_xml():
 
                 # Include excluded docs (not ordered transcr)
                 if putExcludedDocs == 1:
-                    docs_transcr_to_be_ordered = documentListToExclude.split (",")
+                    docs_transcr_to_be_ordered = documents_to_process_separately.split (",")
 
                     for docId in docs_transcr_to_be_ordered:
-                        f.write('<newsDocument>\n')
                         f.write('<docid>'+str(docId)+'</docid>\n')
                         xmltrascr=put_transcription_in_order(docId)
                         f.write('\t\t'+xmltrascr+'\n')
-                        f.write('</newsDocument>\n')
                     f.write('</news>\n')
                 else:
                     f.write('</news>\n') 
-
 
             # Print totals
             # print(len(allDocs))
@@ -586,7 +588,7 @@ def add_ArchivalProperties():
             # print("\b" * len(message), end="", flush=True)
             print(chr(27) + "[2J")
             # processing count
-            print('Documents processed: ' + str(count))
+            print('--> Getting Archival Properties for each document --- documents processed: ' + str(count))
             totalDocumentsCount=str(count)
         
     with open(filename, 'w') as f:
@@ -651,7 +653,6 @@ def addGeoCoordToXml():
 
     count=0
     for x in root.iter('from'):
-        print("qui")
         # print(x.text)
         city = x.text
         # Removing hub/from/plTransit value
@@ -671,7 +672,7 @@ def addGeoCoordToXml():
                 geocoord=getGeoCoordinates(city)
                 latitude=geocoord[0]
                 longitude=geocoord[1]
-                print("From"  +longitude)
+                # print("From"  +longitude)
 
                 if latitude and longitude:
                     locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
@@ -680,9 +681,9 @@ def addGeoCoordToXml():
             pass
         count+=1
         # clean scren 
-        # print(chr(27) + "[2J")
+        print(chr(27) + "[2J")
         # processing count
-        print('News places: ' + str(count))
+        print('--> Adding places: ' + str(count) + 'please wait...')
 
     count=0
     for x in root.iter('plTransit'):
@@ -713,9 +714,9 @@ def addGeoCoordToXml():
             pass
         count+=1
         # clean scren 
-        # print(chr(27) + "[2J")
+        print(chr(27) + "[2J")
         # processing count
-        print('Place of Transit places: ' + str(count))
+        print('--> Place of Transit places: ' + str(count) + 'please wait...')
     
     # Update location dictionary file
     with open(locationDictFile, 'w') as f:
@@ -733,31 +734,35 @@ def addGeoCoordToXml():
 #### RUN
 def main():
     test_connection()
-    print('Connection to DB ok!')
+    print('--> Connection to DB ok!')
     print('')
-    print('Loading..')
+    print('--> Creating Rough XML')
     create_rough_xml()
-    print('- Rough XML ok!')
+    print('')
+    print('--> Rough XML ok!')
     ##check_formatted_xml()
     fix_NewsDocument()
-    input('break')
+    # input('break')
     fix_newsHeader()
     print('')
-    print('- News Document and News Header ok!')
+    print('--> News Document and News Header ok!')
     print('')
     if includeNoXMLDocs is True:
         createXmlForDocsWithoutXml()
-        print('- Included documents without XML ok!')
+        print('--> Included documents without XML ok!')
         print('')
     print('')
     add_ArchivalProperties()
     finalizeXmlCorpus()
     check_formatted_xml()
-    print('- XML Corpus finalized ok!!')
+    print('--> XML Corpus finalized ok!!')
     print('')
     print('Adding geo coordinates... this could take time!')
     addGeoCoordToXml()
-    print('- Added geo coordinates attributes! - check xml-corpus-geo.xml')
+    
+    # clean screen before giving final results.
+    print(chr(27) + "[2J")
+    print('--XML Corpus Ready!--')
     print('')
     print('Total documents added:'+totalDocumentsCount)
     print('')
