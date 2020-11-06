@@ -7,6 +7,7 @@
 # 
 
 import xml.etree.cElementTree as ET
+from configparser import SafeConfigParser
 from lxml import etree
 from io import StringIO
 import xml.dom.minidom
@@ -21,6 +22,19 @@ from geopy.geocoders import Nominatim
 import os.path
 import time
 import jsbeautifier
+import sys
+
+# Get config properties
+configFile="configFile.ini"
+
+if os.path.isfile(configFile):
+    parser = SafeConfigParser()
+    parser.read(configFile)
+    esuser=parser.get('ELASTICSEARCH', 'elasticsearch.username')
+    espassword=parser.get('ELASTICSEARCH', 'elasticsearch.username=')
+else:
+    print("Config file not found")
+    sys.exit()
 
 ### FILES SECTION
 # xml file generated from MIA
@@ -28,13 +42,21 @@ xmlFilename='xml-corpus-geo.xml'
 # xmlFilename='prova.xml'
 locationDictFile = "locationDict.txt"
 
-### ELASTICSEARCH INDEXES SECTION
+### ELASTICSEARCHSECTION
 # Json filename with ES puts (can be changed according to casestudy)
 # jsonFilename='1600experiment.json'
 jsonFilename='all_news.json'
 # Index name (can be changed according to casestudy) 
 #esindex='1600experiment'
 esindex='prova2'
+
+# Es authentication
+esauth=0
+if esauth==1:
+    es = Elasticsearch(['http://localhost:9200'], http_auth=(esuser, espassword))
+else:
+    es = Elasticsearch()
+
 
 # Index mapping
 mapping ={
@@ -137,7 +159,7 @@ newsPosition=""
 locationDict = {}
 longitude = ""
 latitude = ""
-es=Elasticsearch()
+# es=Elasticsearch()
 esDoc = {}
 esDocComplete = esDocNoHubNoFromLoc = esDocNoHubLoc = esDoc = {}
 

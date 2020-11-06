@@ -3,8 +3,8 @@
 # Creates the mapping on Elasticsearch
 # TODO: add a field which specify the hub so that we can filter using the hubname
 
-
 from io import open
+from configparser import SafeConfigParser
 import xml.etree.cElementTree as ET
 from lxml import etree
 from io import StringIO
@@ -21,13 +21,34 @@ import os.path
 import jsbeautifier
 import time
 
+# Get config properties
+configFile="configFile.ini"
+
+if os.path.isfile(configFile):
+    parser = SafeConfigParser()
+    parser.read(configFile)
+    esuser=parser.get('ELASTICSEARCH', 'elasticsearch.username')
+    espassword=parser.get('ELASTICSEARCH', 'elasticsearch.username=')
+else:
+    print("Config file not found")
+    sys.exit()
+
+
 xmlcorpus="xml_corpus.xml"
 # xmlcorpus="prova.xml"
 newstransitxmlcorpusfile="xml-corpus-plTransit.xml"
 location_dict_file = "locationDict.txt"
 
-# define globals
+# Elasticsearch section
 esindexname='pltransit'
+esauth=0
+if esauth==1:
+    es = Elasticsearch(['http://localhost:9200'], http_auth=(esuser, espassword))
+else:
+    es = Elasticsearch()
+
+
+# define globals
 location_dict = {}
 dateunsuremsg = "date can be approximate"
 
@@ -38,6 +59,9 @@ def check_place(cplace):
     comma=","
     cplace=cplace.lstrip()
     cplace=cplace.rstrip()
+    if cplace == 'NA':
+        print(miaDocId)
+        input('break')
     if cplace != None:
         if cplace != 'na' and cplace != 'NA' and cplace !='Na' and cplace !='[loss]' and cplace !='[unsure]' and cplace !='xxx':
             if comma in cplace:
@@ -87,6 +111,7 @@ def check_date(cdate,ctype,parentdate):
 def create_xml_for_place_of_transit():
     # this function creates the actual xml to be used as dataset for creating documents 
     # in Elasticsearch for the newstransit visualization 
+    # it does fix the old method of inserting plTransit and plTransitDate
     # it does fix the old method of inserting plTransit and plTransitDate
     tree = ET.parse(xmlcorpus)
     root = tree.getroot()
@@ -232,6 +257,16 @@ def create_es_index():
                         }
                     }
                 },
+                "hub":{
+                    "properties":{
+                        "location":{
+                            "type":"geo_point"
+                        },
+                        "placeName":{
+                            "type":"text"
+                        }
+                    }
+                },
                 "stage":{
                     "type":"text"
                 },
@@ -256,48 +291,82 @@ def create_es_index():
 def put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
     srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
     destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
-    stage ,transcription):
+    stage ,transcription,ifhub):
     es = Elasticsearch()
     # Define Json Structure
     print(newsId)
     # esDoc mapping is defined in the variables section above
-    esDoc = {
-        "newsId":newsId,
-        "source":{
-            "date": srcPlTransitDate,
-            "date-unsure": srcDateUnsure,
-            "date-notes": srcDateNotes,
-            "location": {
-                "lat": srcPlTransitLat,
-                "lon": srcPlTransitLon
+    
+    if ifhub=="1":
+        esDoc = {
+            "newsId":newsId,
+            "source":{
+                "date": srcPlTransitDate,
+                "date-unsure": srcDateUnsure,
+                "date-notes": srcDateNotes,
+                "location": {
+                    "lat": srcPlTransitLat,
+                    "lon": srcPlTransitLon
+                },
+                "placeName":srcPlTransitName
             },
-            "placeName":srcPlTransitName
-        },
-        "destination":{
-            "date": destPlTransitDate,
-            "date-unsure": destDateUnsure,
-            "date-notes": destDateNotes,
-            "location": {
-                "lat": destPlTransitLat,
-                "lon": destPlTransitLon
+            "destination":{
+                "date": destPlTransitDate,
+                "date-unsure": destDateUnsure,
+                "date-notes": destDateNotes,
+                "location": {
+                    "lat": destPlTransitLat,
+                    "lon": destPlTransitLon
+                },
+                "placeName":destPlTransitName
+
             },
-            "placeName":destPlTransitName
+            "hub":{
+                "location": {
+                    "lat": destPlTransitLat,
+                    "lon": destPlTransitLon
+                },
+                "placeName":destPlTransitName
 
-        },
-        "stage": stage,
-        "transcription": transcription,
-    }
+            },
+            "stage": stage,
+            "transcription": transcription,
+        }
+    else:
+        #if ifhub is 0 do not add hub section (it happens when the istance is a middletransit place)
+        esDoc = {
+            "newsId":newsId,
+            "source":{
+                "date": srcPlTransitDate,
+                "date-unsure": srcDateUnsure,
+                "date-notes": srcDateNotes,
+                "location": {
+                    "lat": srcPlTransitLat,
+                    "lon": srcPlTransitLon
+                },
+                "placeName":srcPlTransitName
+            },
+            "destination":{
+                "date": destPlTransitDate,
+                "date-unsure": destDateUnsure,
+                "date-notes": destDateNotes,
+                "location": {
+                    "lat": destPlTransitLat,
+                    "lon": destPlTransitLon
+                },
+                "placeName":destPlTransitName
+            },
+            "stage": stage,
+            "transcription": transcription,
+        }
 
-    print(str(esDoc))
+    #print(str(esDoc))
     # input('break')
 
     res = es.index(index=esindexname, body=esDoc)
-    print(str(res))
+    #print(str(res))
 
 def populate_es_index():
-    # Inizialize ES index
-    #create_es_index()
-
     # Loading geo coordinates dictionary is already created
     load_geo_location_file()
 
@@ -312,7 +381,7 @@ def populate_es_index():
         for header in document.iter('newsHeader'):
             # Get Hub Name
             try:
-                hubfrom=header.find('hub').text
+                hubfrom=check_place(header.find('hub').text)
             except:
                 print('ERROR: No Hub Name in document: ' + miaDocId)
                 sys.exit()
@@ -365,7 +434,7 @@ def populate_es_index():
                     print('No place of transit in this document: ' + newsId)
                     pass
                 else:
-                    # # STARTPOINT - Source Section (it is obviously newsfrom)
+                    # # STARTPOINT - Source Section (it is obviously newsfrom) ## N-B if re-enable add ifhub variable
                     # try:
                     #     srcPlTransitName=check_place(newsfrom.find('from').text)
                     #     print('PLACE'+ check_place(newsfrom.find('from').text))
@@ -441,7 +510,7 @@ def populate_es_index():
                     
                     # ENDPOINT - Source Section
                     lastplaceoftransit = placeoftransitlist[-1] # get last item of list
-
+                    ifhub="1"
                     try:
                         srcPlTransitDate=lastplaceoftransit.attrib['date']
                     except:
@@ -502,7 +571,7 @@ def populate_es_index():
                         put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
                                             srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
                                             destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
-                                            stage ,transcription)
+                                            stage ,transcription, ifhub)
                     except:
                         print('Error in creating ENDPOINT, newsId: ' + newsId)
                         input('break - want to continue?')
@@ -517,6 +586,7 @@ def populate_es_index():
                     for findplaceoftransit in placeoftransitlist:
                         position=placeoftransitlist.index(findplaceoftransit)
                         if findplaceoftransit != placeoftransitlist[-1]:
+                            ifhub="0" # this is a middle transit not a hub (when creating the esdocument it does not populate the hub section)
                             # Source
                             try:
                                 srcPlTransitDate=findplaceoftransit.attrib['date']
@@ -584,7 +654,7 @@ def populate_es_index():
                                 put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
                                                     srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
                                                     destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
-                                                    stage ,transcription)
+                                                    stage ,transcription,ifhub)
                             except:
                                 print('Error in creating MIDDLESTAGE, newsId: ' + newsId + '  ' + nextplaceoftransit.text)
                                 input('break - want to continue?')
@@ -600,9 +670,8 @@ def populate_es_index():
 
 
 def main():
-    # time.sleep(2)
     create_xml_for_place_of_transit()
-    create_es_index()
+    create_es_index()     # Inizialize ES index - removes the old on, create a new one
     populate_es_index()
 
 if __name__ == "__main__":
