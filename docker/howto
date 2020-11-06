@@ -11,20 +11,55 @@ sudo docker pull apache/nifi
 sudo docker pull kibana:7.8.0
 sudo docker pull elasticsearch:7.8.0
 
-2) run the script nifi-kibana.sh with the fresh option
+1a) Get project source (if you do not already have it) 
+cd /opt/
+git clone https://github.com/lallori/euronews-xml-corpus.git
 
-3) sudo docker exec -it kibana /bin/bash
+cd euronews-xml-corpus
+git checkout develop (optional - if you want more recent version)
+
+cat requirements.txt
+then install optional packages with pip3 (pip3 install packagename)
+
+2) run the docker/elk.sh with the fresh option
+
+bash docker/elk.sh fresh
+
+
+3) configure kibana hosts to connect to local elasticsearch installation
+
+sudo docker exec -it kibana /bin/bash
 
 vi config/kibana.yml
     edit variable--> elasticsearch.hosts: [ "http://localhost:9200" ]  (put localhost)
 exit
 
-bash nifi-kibana.sh stop
-bash nifi-kibana.sh start
+bash elk.sh stop
+bash elk.sh start
 
-3.a) after the firt install if you reboot your computer always launch
-bash nifi-kibana.sh start
+3.a) after the first install if you reboot your computer always launch
+bash elk.sh start
 
-NEVER USE the fresh option!!!
+N.B. NEVER USE the fresh option again!!!
 
 
+
+
+
+Enable security--
+sudo docker exec -it elasticsearch /bin/bash
+vi config/elasticsearch.yml
+add line with: network.host: "localhost"
+add line with: xpack.security.enabled: true
+save and exit
+
+bash elk.sh restart
+sudo docker exec -it elasticsearch /bin/bash
+./bin/elasticsearch-setup-passwords interactive
+anche set all passwords
+
+
+sudo docker exec -it kibana /bin/bash
+vi config/kibana.yml
+add line with: elasticsearch.username: "kibana_system"
+add line with: elasticsearch.password: "thepasswordyoucretedinthepreviousstep"

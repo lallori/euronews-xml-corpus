@@ -30,8 +30,10 @@ configFile="configFile.ini"
 if os.path.isfile(configFile):
     parser = SafeConfigParser()
     parser.read(configFile)
+    eshost=parser.get('ELASTICSEARCH', 'elasticsearch.host')
+    esport=parser.get('ELASTICSEARCH', 'elasticsearch.port')
     esuser=parser.get('ELASTICSEARCH', 'elasticsearch.username')
-    espassword=parser.get('ELASTICSEARCH', 'elasticsearch.username=')
+    espassword=parser.get('ELASTICSEARCH', 'elasticsearch.password')
 else:
     print("Config file not found")
     sys.exit()
@@ -51,9 +53,9 @@ jsonFilename='all_news.json'
 esindex='prova2'
 
 # Es authentication
-esauth=0
+esauth=1
 if esauth==1:
-    es = Elasticsearch(['http://localhost:9200'], http_auth=(esuser, espassword))
+    es = Elasticsearch(['http://'+eshost+':'+esport], http_auth=(esuser, espassword), timeout=120)
 else:
     es = Elasticsearch()
 

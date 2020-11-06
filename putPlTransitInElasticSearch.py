@@ -27,8 +27,10 @@ configFile="configFile.ini"
 if os.path.isfile(configFile):
     parser = SafeConfigParser()
     parser.read(configFile)
+    eshost=parser.get('ELASTICSEARCH', 'elasticsearch.host')
+    esport=parser.get('ELASTICSEARCH', 'elasticsearch.port')
     esuser=parser.get('ELASTICSEARCH', 'elasticsearch.username')
-    espassword=parser.get('ELASTICSEARCH', 'elasticsearch.username=')
+    espassword=parser.get('ELASTICSEARCH', 'elasticsearch.password')
 else:
     print("Config file not found")
     sys.exit()
