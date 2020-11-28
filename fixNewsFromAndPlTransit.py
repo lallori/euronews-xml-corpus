@@ -5,7 +5,7 @@
 # - add <dateUnsure> options
 
 from io import open
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 import xml.etree.cElementTree as ET
 from lxml import etree
 from io import StringIO
@@ -27,7 +27,7 @@ import itertools
 logfile="euronewsxmlcorpus.log"
 xmlcorpus="xml_corpus.xml"
 # xmlcorpus="prova.xml"
-new_corpusfile="prova_mod.xml"
+new_corpusfile="xml_corpus_new_syntax.xml"
 location_dict_file = "locationDict.txt"
 
 # define globals
@@ -45,6 +45,7 @@ def currentDateAndTime():
 logf=open(logfile, "a+")
 current_date, current_time=currentDateAndTime()
 logf.write(os.path.basename(__file__)+' - StartLog--> '+current_date+' '+current_time+'\n')
+msg_xmlnotcreated='xml not created - check above and logs'
 
 def existstr(s):
     return '' if s is None else str(s)
@@ -137,7 +138,8 @@ def check_date(cdate,ctype,parentdate,miaDocId):
                     cdate = cdate.split(' ', 1)[0]
             pass
         else:
-            print('ERROR in date format (pls check dates in document: ' + miaDocId + ')')
+            print('ERROR in date format (pls check dates in document: ' + miaDocId + ')\n')
+            logf.write('ERROR: in date format (pls check dates in document: ' + miaDocId + ')\n')
 
     return cdate, dateunsure
 
@@ -203,7 +205,7 @@ def create_xml_for_newsfrom(logf):
                 
                 if hubdate is None:
                     print('ERROR: No Hub date in document: ' + miaDocId)
-                    exit
+                    sys.exit()
                 else:
                     # parentdate default at 01/01/0001 will never be really used
                     hubdate, hubdateunsure=check_date(hubdate,"headerdate",'01/01/0001',miaDocId)
@@ -211,9 +213,19 @@ def create_xml_for_newsfrom(logf):
             # enters newsFrom section
             for newsfrom in header.iter('newsFrom'):
                 # get the news position in document 
-                newsposition=newsfrom.find('position').text    
+                newsposition=newsfrom.find('position')
+                newspositiontext=newsfrom.find('position').text
                 if newsposition is None:
-                    newsposition="1"
+                    print('check news after news above -> position tag is missing!!')
+                    print('probably newsfrom tag instead of newsheader!!')
+                    sys.exit()
+                    
+                if newspositiontext is None:
+                    print('check news after news above -> position tag is missing!!')
+                    logf.write('ERROR: <position> tag value missing in some news paragraph in document: ' + miaDocId + ')\n')
+                    newsposition="0"
+                else:
+                    newsposition=newsfrom.find('position').text    
 
                 # print(str(placeUnsureTag) + str(dateUnsureTag))
 
@@ -224,14 +236,13 @@ def create_xml_for_newsfrom(logf):
 
                 if newsfromplace is None:
                     # if no <from> tag is present
-                    print('WARNING: '+ 'Document: '+ miaDocId+'-'+newsposition+ ' <from> tag is missing ---this could be a problem'+'\n')
-                    logf.write('WARNING: '+ 'Document: '+ miaDocId+'-'+newsposition+ ' <from> tag is missing ---this could be a problem'+'\n')
+                    print('WARNING: '+ 'Document: '+ miaDocId+'-'+newsposition+ ' <from> tag is missing'+'\n')
+                    logf.write('WARNING: '+ 'Document: '+ miaDocId+'-'+newsposition+ ' <from> tag is missing'+'\n')
                     pass
                 else:
                     newsfromplacenamelist=newsfrom.find('from').text
                     newsfromplacenamelist, fromplacelistlenght=enum_place(newsfromplacenamelist,miaDocId,newsposition)
         
-                    print('asdasdsd')
                     newsfromdate=newsfrom.find('date')
                     if newsfromdate is None:
                         newsfromdate=hubdate
@@ -245,9 +256,27 @@ def create_xml_for_newsfrom(logf):
                     
                     print('--> '+miaDocId+'-'+newsposition)
                     if (datelistlenght != fromplacelistlenght):
-                        print('ERROR: dates and places lists have different lenght--DOCUMENT: ' + miaDocId+'-'+newsposition+ ' ---this could be a problem'+'\n')
-                        logf.write('ERROR: dates and places lists have different lenght--DOCUMENT: ' + miaDocId+'-'+newsposition+ ' ---this could be a problem'+'\n')
+                        print('WARNING: dates and places lists have different lenght--DOCUMENT: ' + miaDocId+'-'+newsposition+ ' -- this could be a problem'+'\n')
+                        logf.write('WARNING: dates and places lists have different lenght--DOCUMENT: ' + miaDocId+'-'+newsposition+ ' -- this could be a problem'+'\n')
                     
+                    # check if multiple entries for dates for one place
+                    addsameplacewithdiffdate = False
+                    if (datelistlenght > fromplacelistlenght):
+                        if fromplacelistlenght is None:
+                            # TODO -- is dates without place () what do we do??
+                            print('SEVERE: dates list contains more documents that placename list --DOCUMENT: ' + miaDocId+'-'+newsposition+ "-|"+str(datelistlenght) + " placelist is NONE:" + ' -- THIS HAS TO BE FIXED!!!'+'\n')
+                            logf.write('SEVERE: dates list contains more documents that placename list--DOCUMENT: ' + miaDocId+'-'+newsposition+ "-|"+str(datelistlenght) + "placelist is NONE:" + ' -- THIS HAS TO BE FIXED'+'\n')
+                        else:
+                            if fromplacelistlenght > 1:    
+                                print('ERROR: dates list contains more documents that placename list --DOCUMENT: ' + miaDocId+'-'+newsposition+ "-|"+str(datelistlenght) + ":" + str(fromplacelistlenght)+ ' -- THIS HAS TO BE FIXED!!!'+'\n')
+                                logf.write('ERROR: dates list contains more documents that placename list--DOCUMENT: ' + miaDocId+'-'+newsposition+ "-|"+str(datelistlenght) + ":" +  str(fromplacelistlenght)+' -- THIS HAS TO BE FIXED'+'\n')
+                                print(msg_xmlnotcreated)
+                                sys.exit()
+                            else:
+                                print('WARNING: dates list contains more documents that placename list --DOCUMENT: ' + miaDocId+'-'+newsposition+ "-|"+str(datelistlenght) + ":" + str(fromplacelistlenght)+ ' -- THIS HAS TO BE FIXED!!!'+'\n')
+                                logf.write('WARNING: dates list contains more documents that placename list--DOCUMENT: ' + miaDocId+'-'+newsposition+ "-|"+str(datelistlenght) + ":" +  str(fromplacelistlenght)+' -- THIS HAS TO BE FIXED'+'\n')
+                                addsameplacewithdiffdate = True
+                                #TODO - create procedure to add two <from> with different dates
 
                     dateandplacelist=list(itertools.zip_longest(newsfromplacenamelist, newsfromdatelist, fillvalue=None))
                     
@@ -278,16 +307,26 @@ def create_xml_for_newsfrom(logf):
                     else:
                         newsfrom.remove(dateunsuretag)
 
+                    print(str(dateandplacelist))
+                    
+
                     # Start processing the joined list
-                    for x in dateandplacelist:       
+                    for x in dateandplacelist:
                         fromtag= ET.Element('from')
-                        fromtag.text=x[0]
+                        
+                        # if one place with multiple date entries
+                        if addsameplacewithdiffdate:
+                            fromtag.text=dateandplacelist[0][0]
+                        else:
+                            fromtag.text=x[0]
                         newsfrom.insert(0,fromtag)
+                        
                         # Check for <fromUnsure> and fix it
                         if placeunsuretag is None:
                             pass
                         else:
                             fromtag.set('fromunsure','y')
+
                         # Check for <dateUnsure> and fix it
                         if dateunsuretag is None:    
                             if x[1] is None:
@@ -296,14 +335,14 @@ def create_xml_for_newsfrom(logf):
                                 fromtag.set('dateunsure','y')
                             else:
                                 fromdate, newsfromdateunsure=check_date(x[1],"newsfromdate",hubdate,miaDocId)
+                                print(fromdate)
                                 if newsfromdateunsure is None:
+                                    print('entra qui')
                                     # Set a default date to be used for placeoftransit when there is no date.
                                     newsfromdate_def=fromdate
-                                    # Add attribute date="$date" to <from> tag
-                                    fromtag.set('date', fromdate)
-                                else:
-                                    fromtag.set('date', fromdate)
-                                    fromtag.set('dateunsure','y')
+                                    # Add attribute date="$date" to attribute type datetime format
+                                    fromtag.set('date',newsfromdate_def)
+                                    # fromtag.set('dateunsure','y')
                         else:
                             if x[1] is None:
                                 # TODO: this has to change since if there is no newfrom date it takes hubdate
@@ -353,8 +392,8 @@ def create_xml_for_newsfrom(logf):
                             pltransitdatelist, pltransitdatelistlenght=enum_date(pltransitdate,"pltransitdate",hubdate,miaDocId)
 
                     if (pltransitdatelistlenght != pltransitplacelistlenght):
-                        print('ERROR: PLTRANSIT dates and places lists have different lenght--DOCUMENT: ' + miaDocId+'-'+newsposition+ ' ---this could be a problem'+'\n')
-                        logf.write('ERROR: PLTRANSIT dates and places lists have different lenght--DOCUMENT: ' + miaDocId+'-'+newsposition+ ' ---this could be a problem'+'\n')
+                        print('WARNING: PLTRANSIT dates and places lists have different lenght--DOCUMENT: ' + miaDocId+'-'+newsposition+ ' ---this could be a problem'+'\n')
+                        logf.write('WARNING: PLTRANSIT dates and places lists have different lenght--DOCUMENT: ' + miaDocId+'-'+newsposition+ ' ---this could be a problem'+'\n')
                     
                     pltransitdateandplacelist=list(itertools.zip_longest(pltransitplacelist, pltransitdatelist, fillvalue=None))
 
