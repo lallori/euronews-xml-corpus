@@ -7,7 +7,6 @@
 import os
 import sys
 from configparser import SafeConfigParser
-import time
 
 # Mysql section
 import mysql.connector
@@ -21,13 +20,9 @@ import xml.dom.minidom
 from datetime import datetime
 import re
 
-# JSON Section
-import json
-import jsbeautifier
-
 # Others Section
+import json
 from geopy.geocoders import Nominatim
-
 
 # Script parameters
 if len(sys.argv) != 2: 
@@ -46,26 +41,26 @@ else:
 
 # SQL Queries
 #qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in (8196)) order by documentEntityId,uploadedFileId"
-documentListToExclude="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50447,50449,50450,50454,50863,50879,51452,51495,51610,51611,51629,51742,51750,52065,52079"
-qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
+# 1600 xp
+# qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in (8196,9944,27231,27250,27131,27263,27288,50447,50449,50450,50454,50863,51452,51495,51610,51611,51629,51742,51750,52065,52079)) order by documentEntityId,uploadedFileId"
+qGetDocuments="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in (8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50447,50449,50450,50454,50863,51452,51495,51610,51611,51629,51742,51750,52065,52079)) order by documentEntityId,uploadedFileId"
 
 # Files involved
 configFile="configFile.ini"
 
 filename="xml_corpus.xml"
 filenametmp="xml_tmp.xml"
-filename_test='xml_corpus_test.xml'
+filenametest="xml_corpus_test.xml"
 filenamewithids="xml_corpus_with_ids.xml"
 newCorpusFile = "newCorpusFile.xml"
-locationDictFile = "locationDict.txt"
 
 
 # Get config properties
-host=str()
-port=str()
-user=str()
-passwd=str()
-database=str()
+host=""
+port=""
+user=""
+passwd=""
+database=""
 
 if os.path.isfile(configFile):
     parser = SafeConfigParser()
@@ -78,46 +73,36 @@ if os.path.isfile(configFile):
 else:
     print("Config file not found")
 
-# Mysql Connection properties
-mydb = mysql.connector.connect(
-        host=myhost,
-        port=myport,
-        user=myuser,
-        passwd=mypasswd,
-        database=mydbname
-        )
-
 # Setting other globals
-prettyxml = ""
-city = ""
+prettyxml = str()
+city = str()
 locationDict= {}
 comma=','
-count=int()
-transcription=""
-docDay=""
-docMonth=""
-docYear=""
-docModernYear=""
-placeOfOrigin=""
-latitude=""
-longitude=""
-docsWithXML=list()
-docsMaybeWithoutXML=list()
-docsWithoutXML=list()
-totalDocumentsCount=""
+current_date=""
+current_time=""
+
+
 
 # Get Date and Time
-def currentDateAndTime():
+def currentTime():
+    global current_date
+    global current_time
     now = datetime.now()
     current_date = now.strftime("%Y-%m-%d")
     current_time = now.strftime("%H:%M:%S")
-    return current_date, current_time
     # print(current_date + ' '  + current_time)
 
 # Test Database connection
 def test_connection(): 
     try:
         global mydb
+        mydb = mysql.connector.connect(
+        host=myhost,
+        port=myport,
+        user=myuser,
+        passwd=mypasswd,
+        database=mydbname
+        )
         if mydb.is_connected():
             db_Info = mydb.get_server_info()
             print("Connected to MySQL Server version ", db_Info)
@@ -127,10 +112,13 @@ def test_connection():
             print("You're connected to database: ", record)
     except Error as e:
         print("Error while connecting to MySQL", e)
+
 ###### TEST FUNCTIONS
 
 
 ###### PROD FUNCTIONS
+
+
 def placeNameStrip(placeName):
     if(placeName is None or placeName == ""):
         print('no placename')
@@ -142,6 +130,7 @@ def placeNameStrip(placeName):
         print(placeName)
     for x in placeName:
         print(x)
+
 
 # Get docFields if document trascription does not contain xml
 def getDocFields(docId):
@@ -197,34 +186,36 @@ def getDocFields(docId):
             results = mycursor.fetchall()
             for row in results:
                 transcription=row[0]
-        # have to remove globals (TODOS)
-        return transcription, docDay, docMonth, docYear, docModernYear, placeOfOrigin
 
     except Error as e:
         print("Error while connecting to MySQL", e)
 
+
+# -- GEOLOCATIONS --
 def loadGeoLocationsFile():
     global locationDict
-    if os.path.isfile('./'+locationDictFile):
-        dictionary = json.load(open(locationDictFile))
+    if os.path.isfile('./locationDict.txt'):
+        dictionary = json.load(open('locationDict.txt'))
         locationDict = dictionary
     else:
         locationDict = {}
 
-
 def getGeoCoordinates(city):
+    global longitude
+    global latitude
     global locationDict
     geolocator = Nominatim(user_agent='myapplication')
     if city in locationDict:
         if 'lat' in locationDict[city]:
             latitude=locationDict[city]['lat']
         else:
-            latitude = ""
+            pass
         if 'long' in locationDict[city]:
             longitude=locationDict[city]['long']
         else:
-            longitude = ""
+            pass
     else:
+        #print(city)
         locationDict[city] = {}
         location = geolocator.geocode(city)
         if location != None:    
@@ -234,11 +225,11 @@ def getGeoCoordinates(city):
             locationDict[city]['lat'] = latitude
             locationDict[city]['long'] = longitude
         else:
-            latitude = ""
-            longitude = ""
-    return latitude, longitude
+            pass
+
 
 def createXmlForDocsWithoutXml():
+    #print(docsWithoutXML)
     with open(filename, "r+", encoding = "utf-8") as f:
         f.seek(0, os.SEEK_END)
         pos = f.tell() - 1
@@ -251,7 +242,7 @@ def createXmlForDocsWithoutXml():
             f.truncate()
 
         print('Processing... please wait.. this can take time...')
-        count=0
+        # add counter for progress bar (len of docsWithoutXML)
         for x in docsWithoutXML:
             getDocFields(x)
             f.write('<newsDocument>\n')
@@ -263,25 +254,18 @@ def createXmlForDocsWithoutXml():
                 f.write('<hub>'+ placeOfOrigin +'</hub>\n')
             f.write('<date>'+str(docDay) + "/" + str(docMonth) + "/" +  str(docYear)+'</date>\n')
             f.write('<newsFrom>\n')
-            f.write('<from>'+ placeOfOrigin +'</from>\n')
-            f.write('<date>'+str(docDay) + "/" + str(docMonth) + "/" +  str(docYear)+'</date>\n')
             f.write('<transc>'+transcription+'</transc>\n')
-            f.write('<position>1</position>\n')
             f.write('</newsFrom>\n')
             f.write('</newsHeader>\n')
             f.write('</newsDocument>\n')
-            count+=1
-            # clean scren 
-            print(chr(27) + "[2J")
-            # processing count
-            print('Documents without XML processed: ' + str(count))
         f.write('</news>')
+
 
 # Write corpus file
 def create_rough_xml():
     global mydb
     with open(filenametmp, 'w') as f:
-        current_time=currentDateAndTime()
+        currentTime()
         # Header content of the xml file
         def printheader():
             f.write('<?xml version="1.0"?>\n')
@@ -290,8 +274,8 @@ def create_rough_xml():
             f.write('\txsi:noNamespaceSchemaLocation="news.xsd">\n\n')
 
             # f.write('<news>\n')
-            f.write('<xmlCorpusDate>' + current_time[0] + '</xmlCorpusDate>\n')
-            f.write('<xmlCorpusTime>' + current_time[1] + '</xmlCorpusTime>\n')
+            f.write('<xmlCorpusDate>' + current_date + '</xmlCorpusDate>\n')
+            f.write('<xmlCorpusTime>' + current_time + '</xmlCorpusTime>\n')
            
         try:
             mydb
@@ -303,9 +287,13 @@ def create_rough_xml():
             printheader()
 
             # define list with documents which do not contain XML
-            global docsWithXML            
+            global docsWithXML
+            docsWithXML=list()
             global docsMaybeWithoutXML
+            docsMaybeWithoutXML=list()
             global docsWithoutXML
+            docsWithoutXML=list()
+            
             allDocs=list()
             
             for x in myresult:
@@ -323,13 +311,13 @@ def create_rough_xml():
             
             # Converting into tuples
             docsWithXMLT=tuple(docsWithXML)
-            qGetTranscriptions="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in {}".format(docsWithXMLT)
+            qGetTranscriptions="select documentEntityId, transcription, uploadedFileId from tblDocTranscriptions where documentEntityId in {}".format(docsWithXMLT)
             
             mydb
             mycursor = mydb.cursor()
             mycursor.execute(qGetTranscriptions)
             myresult = mycursor.fetchall()
-
+                    
             if includeNoXMLDocs is True:
                 for x in myresult:
                     # put each entry in file (URI to be added)
@@ -340,9 +328,35 @@ def create_rough_xml():
 
             else:
                 for x in myresult:
+                    docId=str(x[0])
+                    uploadFileId=str(x[2])
                     # put each entry in file (URI to be added)
+
+                    # writes the document id
                     f.write('<docid>'+str(x[0])+'</docid>\n')
+                    
+                    # writes the archival coordinates
+                    qGetRepoColl="select repository, collectionName from tblCollections where id in (select collection from tblUploads where id in (select idTblUpload from tblUploadedFiles where id ='" + uploadFileId +"'))"
+                    mycursor1 = mydb.cursor()
+                    mycursor1.execute(qGetRepoColl)
+                    myresult1 = mycursor1.fetchall()
+                    repository=str(myresult1[0][0])
+                    collection=str(myresult1[0][1])
+                
+                    qGetVolume="select volume from tblVolumes where SUMMARYID in (select volume from tblUploads where id in (select idTblUpload from tblUploadedFiles where id ='" + uploadFileId +"'))"
+                    mycursor1.execute(qGetVolume)
+                    myresult1 = mycursor1.fetchall()
+                    volume=str(myresult1[0][0])
+
+                    
+                    f.write('<repository>'+repository+'</repository>\n')
+                    f.write('<collection>'+collection+'</collection>\n')
+                    f.write('<volume>'+volume+'</volume>\n')
+                    
+                    # writes the xml block in transcription
                     f.write('\t\t'+x[1]+'\n')
+                    # print(str(x[1]))
+                    
 
                 f.write('</news>\n') 
 
@@ -354,6 +368,11 @@ def create_rough_xml():
         except Error as e:
             print("Error reading data from MySQL table", e)
 
+        finally:
+            if (mydb.is_connected()):
+                mydb.close()
+                mydb.close()
+                print("MySQL connection is closed")
     f.closed
 
     # Remove carriage returns
@@ -445,52 +464,18 @@ def fix_NewsDocument():
     with open(filename, 'w') as f:
         f.write(prettyxml)
 
-def add_ArchivalProperties():
-    global prettyxml, mydb, totalDocumentsCount
-
-    # Getting repositories dictionary
-    repoDict = json.load(open("repositoriesDict.txt"))
-
-    print('- Adding Archival Properties to XML- please wait...')
+def fix_Repository():
+    global prettyxml
 
     with open(filename, 'r') as f:
         prettyxml = f.read()
-        count=0
-        for docId in re.findall(r'(?:<docid>)(\d+)', prettyxml):
-            qGetUploaded="select uploadedFileId from tblDocTranscriptions where documentEntityId ="+docId
-            
-            mydb
-            mycursor1 = mydb.cursor()
-            mycursor1.execute(qGetUploaded)
-            myresult1 = mycursor1.fetchall()
-            uploadFileId=str(myresult1[0][0])
-            # print(uploadFileId)
-            
-            qGetRepoColl="select repository, collectionName from tblCollections where id in (select collection from tblUploads where id in (select idTblUpload from tblUploadedFiles where id ='" + uploadFileId +"'))"
-            mycursor1.execute(qGetRepoColl)
-            myresult1 = mycursor1.fetchall()
-            repository=str(myresult1[0][0])
-            # getting repository name from repositoriesDict.txt generated from tblRepositories
-            repository=(repoDict["1"])
-            collection=str(myresult1[0][1])
 
-            qGetVolume="select volume from tblVolumes where SUMMARYID in (select volume from tblUploads where id in (select idTblUpload from tblUploadedFiles where id ='" + uploadFileId +"'))"
-            mycursor1.execute(qGetVolume)
-            myresult1 = mycursor1.fetchall()
-            volume=str(myresult1[0][0])
+    root=etree.parse(filename).getroot()
+    child=root.getchildren()[0]
+    print(child)
 
-            prettyxml = prettyxml.replace('<docid>'+docId+'</docid>', '<docid>'+docId+'</docid><repository>'+repository+'</repository><collection>'+collection+'</collection><volume>'+volume+'</volume>', 1)
-            count+=1
-            # clean scren 
-            # print("\b" * len(message), end="", flush=True)
-            print(chr(27) + "[2J")
-            # processing count
-            print('Documents processed: ' + str(count))
-            totalDocumentsCount=str(count)
-        
-    with open(filename, 'w') as f:
+    with open(filenametest, 'w') as f:
         f.write(prettyxml)
-
 
 
 # Output final xmlcorpus
@@ -500,22 +485,16 @@ def finalizeXmlCorpus():
     with open(filename, 'w') as f:
         f.write(prettyxml)
     f.closed
-    
-    if (mydb.is_connected()):
-        mydb.close()
-        mydb.close()
-        print("MySQL connection is closed")
+
+
 
 # add geographical coordinates to xml corpus
 def addGeoCoordToXml():
-    loadGeoLocationsFile()
-    print('- Adding Geographical Locations to XML- please wait...')
     tree = ET.parse(filename)
     root = tree.getroot()
 
-    count=0
     for x in root.iter('hub'):
-        # print(x.text)
+        print(x.text)
         city = x.text
         # Removing hub/from/plTransit value
         x.text=''
@@ -530,28 +509,18 @@ def addGeoCoordToXml():
                     city = city.replace(comma, " ")
                     city = city.split(' ', 1)[0]
                 else:
-                    pass     
-                geocoord=getGeoCoordinates(city)
-                latitude=geocoord[0]
-                longitude=geocoord[1]
-                print(longitude)
+                    pass
+                loadGeoLocationsFile()     
+                getGeoCoordinates(city)
 
-
-                if latitude and longitude:
+                if longitude and longitude:
                     locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
                     x.append(locationTag)
         else:
             pass
-        count+=1
-        # clean scren 
-        # print(chr(27) + "[2J")
-        # processing count
-        print('Hubs places: ' + str(count))
 
-    count=0
     for x in root.iter('from'):
-        print("qui")
-        # print(x.text)
+        print(x.text)
         city = x.text
         # Removing hub/from/plTransit value
         x.text=''
@@ -566,26 +535,18 @@ def addGeoCoordToXml():
                     city = city.replace(comma, " ")
                     city = city.split(' ', 1)[0]
                 else:
-                    pass     
-                geocoord=getGeoCoordinates(city)
-                latitude=geocoord[0]
-                longitude=geocoord[1]
-                print("From"  +longitude)
+                    pass
+                loadGeoLocationsFile()     
+                getGeoCoordinates(city)
 
-                if latitude and longitude:
+                if longitude and longitude:
                     locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
                     x.append(locationTag)
         else:
             pass
-        count+=1
-        # clean scren 
-        # print(chr(27) + "[2J")
-        # processing count
-        print('News places: ' + str(count))
 
-    count=0
     for x in root.iter('plTransit'):
-        # print(x.text)
+        print(x.text)
         city = x.text
         # Removing hub/from/plTransit value
         x.text=''
@@ -600,72 +561,50 @@ def addGeoCoordToXml():
                     city = city.replace(comma, " ")
                     city = city.split(' ', 1)[0]
                 else:
-                    pass     
-                geocoord=getGeoCoordinates(city)
-                latitude=geocoord[0]
-                longitude=geocoord[1]
+                    pass
+                loadGeoLocationsFile()     
+                getGeoCoordinates(city)
 
-                if latitude and longitude:
+                if longitude and longitude:
                     locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
                     x.append(locationTag)
         else:
             pass
-        count+=1
-        # clean scren 
-        # print(chr(27) + "[2J")
-        # processing count
-        print('Place of Transit places: ' + str(count))
-    
-    # Update location dictionary file
-    with open(locationDictFile, 'w') as f:
-        f.write(json.dumps(locationDict))
-        f.close()
-
-    # Parse it
-    formattedJson = jsbeautifier.beautify_file(locationDictFile)
-    with open(locationDictFile, 'w') as f:
-        f.write(formattedJson)
-        f.close()
 
     tree.write('xml-corpus-geo.xml', encoding="UTF-8")
 
 #### RUN
-def main():
-    test_connection()
-    print('Connection to DB ok!')
-    print('')
-    print('Loading..')
-    create_rough_xml()
-    print('- Rough XML ok!')
-    ##check_formatted_xml()
-    fix_NewsDocument()
-    fix_newsHeader()
-    print('')
-    print('- News Document and News Header ok!')
-    print('')
-    if includeNoXMLDocs is True:
-        createXmlForDocsWithoutXml()
-        print('- Included documents without XML ok!')
-        print('')
-    print('')
-    add_ArchivalProperties()
-    finalizeXmlCorpus()
-    check_formatted_xml()
-    print('- XML Corpus finalized ok!!')
-    print('')
-    print('Adding geo coordinates... this could take time!')
-    addGeoCoordToXml()
-    print('- Added geo coordinates attributes! - check xml-corpus-geo.xml')
-    print('')
-    print('Total documents added:'+totalDocumentsCount)
-    print('')
-    print('DONE')
-    ##finalizeXmlCorpus()
 
-if __name__ == "__main__":
-    start_time = time.time()
-    main()
-    print("--- %s seconds ---" % (time.time() - start_time))
+test_connection()
+print('Connection to DB ok!')
+print('')
+print('Loading..')
+##create_rough_xml()
+print('- Rough XML ok!')
+##check_formatted_xml()
+
+# fix_NewsDocument()
+# fix_Repository()
+# fix_newsHeader()
+print('')
+print('- News Document and News Header ok!')
+print('')
+if includeNoXMLDocs is True:
+    createXmlForDocsWithoutXml()
+    print('- Included documents without XML ok!')
+    print('')
+print('')
+# finalizeXmlCorpus()
+# check_formatted_xml()
+print('- XML Corpus finalized ok!!')
+print('')
+print('Adding geo coordinates... this could take time!')
+# addGeoCoordToXml()
+print('- Added geo coordinates attributes! - check xml-corpus-geo.xml')
+print('')
+
+print('DONE')
+# #finalizeXmlCorpus()
 
 
 
