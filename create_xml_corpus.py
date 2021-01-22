@@ -6,7 +6,7 @@
 # File operations
 import os
 import sys
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 import time
 
 # Mysql section
@@ -48,9 +48,10 @@ else:
 
 # SQL Queries
 # Documents list to Exclude from queries (transcriptions should be reordered to create xml -- check function put_transcription_in_order() )
-all_docs_to_reorder_transcr="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50431,50447,50449,50450,50454,50863,50879,51110,51452,51495,51610,51611,51629,51742,51750,52065,52079,52644"
-docs_to_reorder_transcr_1575="9944,27231,27250,27154,27230,27263,27288,51452,51495,51610,51611,51629,51742,51750,52644"
-documents_to_process_separately=docs_to_reorder_transcr_1575
+cannot_fix_docs="50730,51110,51904,52079,52530,53126" #not finished
+all_docs_to_reorder_transcr="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,27408,28432,50431,50447,50449,50450,50454,50730,50863,50879,51110,51452,51495,51610,51611,51629,51742,51750,52065,52079,52644,52908,51984,52079,52530,52908"
+docs_to_reorder_transcr_1575="9944,27231,27250,27154,27230,27263,27288,51452,51495,51610,51611,51629,51742,51750,52644,52908,53210"
+documents_to_process_separately=all_docs_to_reorder_transcr
 # Set this to 1 if you want to include the above documents
 putExcludedDocs=1
 
@@ -59,7 +60,8 @@ qGet1600="select documentEntityId, transcription from tblDocTranscriptions where
 
 # Query for All news
 qGetAllNews="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
-
+# Use this not to include excluded documents to be finished
+qGetAllNewsExcl="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+","+cannot_fix_docs+")) order by documentEntityId,uploadedFileId"
 # Query to Get Avvisi only
 qGetAvvisi="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
@@ -68,7 +70,7 @@ qGetNewOther="select documentEntityId, transcription from tblDocTranscriptions w
 
 qGetNewsWithTimeSpan="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1575' or docModernYear = '1575') and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
-qGetDocuments=qGetNewsWithTimeSpan
+qGetDocuments=qGetAllNewsExcl
 # qGetDocuments=qGet1600
 
 
@@ -91,7 +93,7 @@ passwd=str()
 database=str()
 
 if os.path.isfile(configFile):
-    parser = SafeConfigParser()
+    parser = ConfigParser()
     parser.read(configFile)
     myhost=parser.get('MYSQLDATABASE', 'mysql.host')
     myport=parser.get('MYSQLDATABASE', 'mysql.port')
@@ -356,7 +358,7 @@ def createXmlForDocsWithoutXml():
 
 # Write corpus file
 def create_rough_xml():
-    global mydb
+    global mydb, cannot_fix_docs
     with open(filenametmp, 'w') as f:
         current_time=currentDateAndTime()
         # Header content of the xml file
@@ -416,7 +418,15 @@ def create_rough_xml():
                  # Include excluded docs (not ordered transcr)
                 if putExcludedDocs == 1:
                     docs_transcr_to_be_ordered = documents_to_process_separately.split (",")
-
+                    # remove "cannot fix" documents
+                    cannot_fix_docs=cannot_fix_docs.split(",")
+                    for x in cannot_fix_docs:
+                        try: 
+                            docs_transcr_to_be_ordered.remove(x)
+                        except ValueError:
+                            print("Cannot fix document: "+x+" is not in list")
+                            pass
+            
                     for docId in docs_transcr_to_be_ordered:
                         f.write('<docid>'+str(docId)+'</docid>\n')
                         xmltrascr=put_transcription_in_order(docId)
@@ -434,6 +444,14 @@ def create_rough_xml():
                 # Include excluded docs (not ordered transcr)
                 if putExcludedDocs == 1:
                     docs_transcr_to_be_ordered = documents_to_process_separately.split (",")
+                    # remove "cannot fix" documents
+                    cannot_fix_docs=cannot_fix_docs.split(",")
+                    for x in cannot_fix_docs:
+                        try: 
+                            docs_transcr_to_be_ordered.remove(x)
+                        except ValueError:
+                            print("Cannot fix document: "+x+" is not in list")
+                            pass
 
                     for docId in docs_transcr_to_be_ordered:
                         f.write('<docid>'+str(docId)+'</docid>\n')
