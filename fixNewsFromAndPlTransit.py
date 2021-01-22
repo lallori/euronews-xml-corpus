@@ -26,7 +26,7 @@ import itertools
 ## FILES
 logfile="euronewsxmlcorpus.log"
 xmlcorpus="xml_corpus.xml"
-# xmlcorpus="prova.xml"
+#xmlcorpus="test.xml"
 new_corpusfile="xml_corpus_new_syntax.xml"
 location_dict_file = "locationDict.txt"
 
@@ -147,20 +147,24 @@ def check_date(cdate,ctype,parentdate,miaDocId):
 def enum_date(cdate,ctype,parentdate,miaDocId):
     # mangles the list of dates in a <from> tag
     cdatel=[]
-    
+
     # enum
-    cdate=cdate.strip()
-    cdate=cdate.replace(","," ")
-    cdate=cdate.replace(";"," ")
-    cdate=" ".join(cdate.split())
+    if cdate == 'notavailable':
+        # <date> tag not present or present but without a value
+        pass
+    else:
+        cdate=cdate.strip()
+        cdate=cdate.replace(","," ")
+        cdate=cdate.replace(";"," ")
+        cdate=" ".join(cdate.split())
 
-    # cdatelw=cdate.split(" ")
-    # for x in cdatelw:
-    #     # fixedate, dateunsure=check_date(x,ctype,parentdate,miaDocId)
-    #     # cdatel.append(fixedate)
+        # cdatelw=cdate.split(" ")
+        # for x in cdatelw:
+        #     # fixedate, dateunsure=check_date(x,ctype,parentdate,miaDocId)
+        #     # cdatel.append(fixedate)
 
-    cdatel=cdate.split(" ")
-    # print(str(cdatel))
+        cdatel=cdate.split(" ")
+        # print(str(cdatel))
     datelistcount=len(cdatel)
 
     return cdatel, datelistcount
@@ -196,19 +200,12 @@ def create_xml_for_newsfrom(logf):
             miaDocId=document.find('docid').text
             hubdate=header.find('date')
             # print(miaDocId)
-            if hubdate is None:
+            if hubdate is None or hubdate.text is None:
                 print('ERROR: No Hub date in document: ' + miaDocId)
                 sys.exit()
             else:
                 hubdate=header.find('date').text
                 hubdate, hubdateunsure=check_date(hubdate,"headerdate",'01/01/0001',miaDocId)
-                
-                if hubdate is None:
-                    print('ERROR: No Hub date in document: ' + miaDocId)
-                    sys.exit()
-                else:
-                    # parentdate default at 01/01/0001 will never be really used
-                    hubdate, hubdateunsure=check_date(hubdate,"headerdate",'01/01/0001',miaDocId)
 
             # enters newsFrom section
             for newsfrom in header.iter('newsFrom'):
@@ -234,6 +231,7 @@ def create_xml_for_newsfrom(logf):
                 ###########################
                 newsfromplace=newsfrom.find('from')
 
+                ### PLACE CHECKS
                 if newsfromplace is None:
                     # if no <from> tag is present
                     print('WARNING: '+ 'Document: '+ miaDocId+'-'+newsposition+ ' <from> tag is missing'+'\n')
@@ -243,16 +241,16 @@ def create_xml_for_newsfrom(logf):
                     newsfromplacenamelist=newsfrom.find('from').text
                     newsfromplacenamelist, fromplacelistlenght=enum_place(newsfromplacenamelist,miaDocId,newsposition)
         
+                    ### DATE CHECKS
                     newsfromdate=newsfrom.find('date')
-                    if newsfromdate is None:
-                        newsfromdate=hubdate
+                    if newsfromdate is None or newsfromdate.text is None:
+                        # newsfromdate=hubdate
+                        newsfromdate='notavailable'
+                        newsfromdatelist, datelistlenght=enum_date(newsfromdate,"newsfromdate",hubdate,miaDocId)
                     else:
                         newsfromdate=newsfrom.find('date').text
-                        if newsfromdate is None:
-                            newsfromdate=hubdate
-                        else:
-                            # Join the two lists
-                            newsfromdatelist, datelistlenght=enum_date(newsfromdate,"newsfromdate",hubdate,miaDocId)
+                        # Join the two lists
+                        newsfromdatelist, datelistlenght=enum_date(newsfromdate,"newsfromdate",hubdate,miaDocId)
                     
                     print('--> '+miaDocId+'-'+newsposition)
                     if (datelistlenght != fromplacelistlenght):
@@ -325,29 +323,28 @@ def create_xml_for_newsfrom(logf):
                         if placeunsuretag is None:
                             pass
                         else:
-                            fromtag.set('fromunsure','y')
+                            fromtag.set('fromUnsure','y')
 
                         # Check for <dateUnsure> and fix it
                         if dateunsuretag is None:    
                             if x[1] is None:
                                 # TODO: this has to change since if there is no newfrom date it takes hubdate
                                 fromtag.set('date', hubdate)
-                                fromtag.set('dateunsure','y')
+                                fromtag.set('dateUnsure','y')
                             else:
                                 fromdate, newsfromdateunsure=check_date(x[1],"newsfromdate",hubdate,miaDocId)
-                                print(fromdate)
+                                # print(fromdate)
                                 if newsfromdateunsure is None:
-                                    print('entra qui')
                                     # Set a default date to be used for placeoftransit when there is no date.
                                     newsfromdate_def=fromdate
                                     # Add attribute date="$date" to attribute type datetime format
                                     fromtag.set('date',newsfromdate_def)
-                                    # fromtag.set('dateunsure','y')
+                                    # fromtag.set('dateUnsure','y')
                         else:
                             if x[1] is None:
                                 # TODO: this has to change since if there is no newfrom date it takes hubdate
                                 fromtag.set('date', hubdate)
-                                fromtag.set('dateunsure','y')
+                                fromtag.set('dateUnsure','y')
                             else:
                                 fromdate, newsfromdateunsure=check_date(x[1],"newsfromdate",hubdate,miaDocId)
                                 if newsfromdateunsure is None:
@@ -355,10 +352,10 @@ def create_xml_for_newsfrom(logf):
                                     newsfromdate_def=fromdate
                                     # Add attribute date="$date" to <from> tag
                                     fromtag.set('date', fromdate)
-                                    fromtag.set('dateunsure','y')
+                                    fromtag.set('dateUnsure','y')
                                 else:
                                     fromtag.set('date', fromdate)
-                                    fromtag.set('dateunsure','y')
+                                    fromtag.set('dateUnsure','y')
 
             
                 #########################################
@@ -413,14 +410,14 @@ def create_xml_for_newsfrom(logf):
                         if x[1] is None:
                             # TODO: this has to change since if there is no placeoftransit date it takes newsfromdate
                             pltransittag.set('date', newsfromdate_def)
-                            pltransittag.set('dateunsure','y')
+                            pltransittag.set('dateUnsure','y')
                         else:
                             pltransitdate, pltransitdateunsure=check_date(x[1],"pltransitdate",fromdate,miaDocId)
                             if pltransitdateunsure is None:
                                 pltransittag.set('date', pltransitdate)
                             else:
                                 pltransittag.set('date', pltransitdate)
-                                pltransittag.set('dateunsure','y')
+                                pltransittag.set('dateUnsure','y')
                     
 
                     # print(str(pltransitplacelist))
