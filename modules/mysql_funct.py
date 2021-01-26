@@ -5,7 +5,7 @@ from modules.configParser_functs import *
 import mysql.connector
 from mysql.connector import Error
 
-myhost,myport,myuser, mypasswd, mydbname=read_configfile()
+myhost,myport,myuser, mypasswd, mydbname=mysql_properties()
 
 # Test Database connection
 def test_connection(): 

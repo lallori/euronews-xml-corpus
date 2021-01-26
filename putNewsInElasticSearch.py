@@ -1,20 +1,18 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python3
 # Authors Lorenzo Allori <lorenzo.allori@gmail.con>
 # Script that creates EURONEWS index for Elasticsearch 
 # These index can be used to create custom visualization dashboards in Kibana
-# ver 0.2
-# --> Elasticsearch index mapping in "mapping" variable below
+# ver 1.0
+# ElasticSearch functions are in ./modules/elastic_funct.py
 # 
 
 import xml.etree.cElementTree as ET
-from configparser import SafeConfigParser
 from lxml import etree
 from io import StringIO
 import xml.dom.minidom
 from datetime import datetime
 from types import SimpleNamespace
 import json
-from elasticsearch import Elasticsearch
 import uuid
 import datetime
 import unicodedata
@@ -24,19 +22,8 @@ import time
 import jsbeautifier
 import sys
 
-# Get config properties
-configFile="configFile.ini"
-
-if os.path.isfile(configFile):
-    parser = SafeConfigParser()
-    parser.read(configFile)
-    eshost=parser.get('ELASTICSEARCH', 'elasticsearch.host')
-    esport=parser.get('ELASTICSEARCH', 'elasticsearch.port')
-    esuser=parser.get('ELASTICSEARCH', 'elasticsearch.username')
-    espassword=parser.get('ELASTICSEARCH', 'elasticsearch.password')
-else:
-    print("Config file not found")
-    sys.exit()
+from modules.elastic_funct import *
+from modules.utils_funct import *
 
 ### FILES SECTION
 # xml file generated from MIA
@@ -45,101 +32,13 @@ xmlFilename='xml-corpus-geo.xml'
 locationDictFile = "locationDict.txt"
 
 ### ELASTICSEARCHSECTION
-# Json filename with ES puts (can be changed according to casestudy)
-# jsonFilename='1600experiment.json'
-jsonFilename='all_news.json'
 # Index name (can be changed according to casestudy) 
-#esindex='1600experiment'
-esindex='prova2'
-
-# Es authentication
-esauth=1
-if esauth==1:
-    es = Elasticsearch(['http://'+eshost+':'+esport], http_auth=(esuser, espassword), timeout=120)
-else:
-    es = Elasticsearch()
-
-
-# Index mapping
-mapping ={
-    "mappings":{
-      "properties":{
-         "newsId":{
-            "type":"text"
-         },
-         "repository":{
-            "type":"keyword"
-         },
-         "collection":{
-            "type":"keyword"
-         },
-         "volume":{
-            "type":"keyword"
-         },
-         "miaDocId":{
-            "type":"keyword"
-         },
-         "hub":{
-            "properties":{
-               "date":{
-                  "type":"date",
-                  "format":"dd/MM/yyyy"
-               },
-               "location":{
-                  "type":"geo_point"
-               },
-               "placeName":{
-                  "type":"text"
-               }
-            }
-         },
-         "from":{
-            "properties":{
-               "date":{
-                  "type":"date",
-                  "format":"dd/MM/yyyy"
-               },
-               "location":{
-                  "type":"geo_point"
-               },
-               "placeName":{
-                  "type":"text"
-               }
-            }
-         },
-         "plTransit":{
-            "properties":{
-               "date":{
-                  "type":"date",
-                  "format":"dd/MM/yyyy"
-               },
-               "location":{
-                  "type":"geo_point"
-               },
-               "placeName":{
-                  "type":"text"
-               }
-            }
-         },
-         "transcription":{
-            "type":"text", 
-            "fielddata": True
-         },
-         "transcriptionk":{
-            "type":"keyword"
-         },
-         "newsPosition":{
-            "type":"text"
-         }
-      }
-   }
-}
+# Please check esindex variable in modules/elastic_funct.py file
 
 ### Declaring global variables
 documentId=int()
 miaDocId=""
-# newsId is mapDocId+position
-newsId=""
+newsId="" # newsId is mapDocId+position
 repository=""
 collection=""
 volume=""
@@ -161,30 +60,12 @@ newsPosition=""
 locationDict = {}
 longitude = ""
 latitude = ""
-# es=Elasticsearch()
 esDoc = {}
 esDocComplete = esDocNoHubNoFromLoc = esDocNoHubLoc = esDoc = {}
 
 ### FUNCTIONS
-# -- UTILS --
-def existstr(s):
-    return '' if s is None else str(s)
-
-def filldate(s):
-    d='/'.join(x.zfill(2) for x in d.split('/'))
-    return s
 
 # -- ELASTICSEARCH --
-def createIndexElasticsearch():
-    # Deleting previous Index
-    res = es.indices.delete(index=esindex, ignore=[400,404])
-    print('Deleting ES Index '+esindex+' response:'+str(res))
-    
-    # Creating new Index
-    res = es.indices.create(index=esindex, body=mapping, ignore=400)
-    print('')
-    print('Creating ES Index '+esindex+' response:'+str(res))
-    time.sleep(3)
 
 def documentPutElasticsearch():
     global esDoc,documentId, esindex, newsPosition, transcription
@@ -599,7 +480,7 @@ def populateElasticsearchIndex():
                                     documentId=documentId+1
                                     print(documentId)
                                     # print(locationDict)                     
-                            i=i+1
+                                    i=i+1
                         
     # Update location dictionary file
     with open(locationDictFile, 'w') as f:
