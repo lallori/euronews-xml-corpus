@@ -14,7 +14,6 @@ from datetime import datetime
 import sys
 from types import SimpleNamespace
 import json
-from elasticsearch import Elasticsearch
 import uuid
 import unicodedata
 from geopy.geocoders import Nominatim
@@ -22,6 +21,9 @@ import os.path
 import jsbeautifier
 import time
 import itertools
+
+from modules.utils_funct import *
+
 
 ## FILES
 logfile="euronewsxmlcorpus.log"
@@ -33,13 +35,6 @@ location_dict_file = "locationDict.txt"
 # define globals
 location_dict = {}
 dateunsuremsg = "date can be approximate"
-
-# Get Date and Time
-def currentDateAndTime():
-    now = datetime.now()
-    current_date = now.strftime("%Y-%m-%d")
-    current_time = now.strftime("%H:%M:%S")
-    return current_date, current_time
 
 #initialize logging
 logf=open(logfile, "a+")
@@ -88,8 +83,6 @@ def enum_place(cplace,miaDocId,newsposition):
 
     return cplacel, placelistcount
     
-
-
 def check_date(cdate,ctype,parentdate,miaDocId):
     # this funct takes three variables (params)
     # (cdate: the date which has to be checked, 
@@ -357,7 +350,6 @@ def create_xml_for_newsfrom(logf):
                                     fromtag.set('date', fromdate)
                                     fromtag.set('dateUnsure','y')
 
-            
                 #########################################
                 #<plTransit> and <plTransitDate> section#
                 #########################################
@@ -419,7 +411,6 @@ def create_xml_for_newsfrom(logf):
                                 pltransittag.set('date', pltransitdate)
                                 pltransittag.set('dateUnsure','y')
                     
-
                     # print(str(pltransitplacelist))
                     # print(str(pltransitdatelist))
                     # print(str(pltransitdateandplacelist))
@@ -431,7 +422,6 @@ def create_xml_for_newsfrom(logf):
 def main():
     create_xml_for_newsfrom(logf)
     logf.close()
-
 
 if __name__ == "__main__":
     main()
