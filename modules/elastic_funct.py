@@ -10,8 +10,10 @@ eshost,esport,esuser,espassword = elastic_properties()
 
 # Es authentication (default is 1)
 esauth=1
-if esauth==1:
+if esauth==0:
     es = Elasticsearch(['http://'+eshost+':'+esport], http_auth=(esuser, espassword), timeout=120)
+    print(es)
+    input('asd')
 else:
     es = Elasticsearch()
 
@@ -45,11 +47,17 @@ mapping ={
                   "type":"date",
                   "format":"dd/MM/yyyy"
                },
+               "dateUnsure":{
+                  "type":"boolean"
+               },
                "location":{
                   "type":"geo_point"
                },
                "placeName":{
                   "type":"text"
+               },
+               "placeUnsure":{
+                  "type":"boolean"
                }
             }
          },
@@ -59,11 +67,17 @@ mapping ={
                   "type":"date",
                   "format":"dd/MM/yyyy"
                },
+               "dateUnsure":{
+                  "type":"boolean"
+               },
                "location":{
                   "type":"geo_point"
                },
                "placeName":{
                   "type":"text"
+               },
+               "placeUnsure":{
+                  "type":"boolean"
                }
             }
          },
@@ -73,11 +87,17 @@ mapping ={
                   "type":"date",
                   "format":"dd/MM/yyyy"
                },
+               "dateUnsure":{
+                  "type":"boolean"
+               },
                "location":{
                   "type":"geo_point"
                },
                "placeName":{
                   "type":"text"
+               },
+               "placeUnsure":{
+                  "type":"boolean"
                }
             }
          },
@@ -95,9 +115,10 @@ mapping ={
    }
 }
 
+
 def createIndexElasticsearch():
-    # Deleting previous Index
-    res = es.indices.delete(index=esindex, ignore=[400,404], timeout=120)
+   # Deleting previous Index
+    res = es.indices.delete(index=esindex, ignore=[400,404])
     print('Deleting ES Index '+esindex+' response:'+str(res))
     
     # Creating new Index
