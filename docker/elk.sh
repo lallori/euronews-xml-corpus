@@ -10,7 +10,7 @@
 # HINT: pls edit the variables for your local data paths 
 
 # Versions
-ELKVER="7.7.1"
+ELKVER="7.8.0"
 
 # Please edit with you own dirs (sharing between host system and docker containers
 NIFIDIRINPUT="/home/lorenzo/Documents/Development/EuronewsXMLCorpus/euronews-xml-corpus/nifi/input"
