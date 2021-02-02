@@ -24,6 +24,7 @@ def loadGeoLocationsFile():
             locationDict = {}
     else:
         locationDict = {}
+    return locationDict
 
 def prettyJsonLocationDict():
     # Parse it
@@ -33,7 +34,7 @@ def prettyJsonLocationDict():
         f.close()
 
 def getGeoCoordinates(city):
-    global locationDict
+    locationDict = loadGeoLocationsFile()
     geolocator = Nominatim(user_agent='euronewsproject.org')
     geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
 
