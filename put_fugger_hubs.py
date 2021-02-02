@@ -8,18 +8,14 @@
 #Cod | folios  | hub       | date
 #8951|80r-80v  | Antwerpen | 30.04.1578
 #8968|514v-515r| o.O.      | NA
+#
+#
+#
+#
+# TODO: web scraping for newFrom
+# 1- create list in memory with all the good entries (so no date as null or hub as null)- variable: complete_fug_url
+# 2- for each entry do the web scraping searching for the right values in the page.
 
-from datetime import datetime
-from types import SimpleNamespace
-import json
-from typing import SupportsIndex
-import uuid
-import datetime
-import unicodedata
-from geopy.geocoders import Nominatim
-import time
-import jsbeautifier
-import sys
 
 from modules.elastic_funct import *
 from modules.utils_funct import *
@@ -31,8 +27,8 @@ import csv
 logfile="fugger_log.txt"
 csv_dataset="datasets/fugger.csv"
 # csv_dataset="datasets/test.csv"
-repository = "Austrian National Library"
-collection = "fugger"
+repository = "Österreichische Nationalbibliothek"
+collection = "Sammlung für Handschriften und alte Drucke"
 fuggerurl="https://fuggerzeitungen.univie.ac.at/zeitungen/cod-"
 
 # ELASTICSEARCH

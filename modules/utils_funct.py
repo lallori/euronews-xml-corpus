@@ -12,10 +12,9 @@ def currentDateAndTime():
     current_time = now.strftime("%H:%M:%S")
     return current_date, current_time
 
-
-def filldate(s):
+def filldate(d):
     d='/'.join(x.zfill(2) for x in d.split('/'))
-    return s
+    return d
 
 def existstr(s):
     return '' if s is None else str(s)
@@ -30,7 +29,8 @@ def check_date_basic(cdate):
             cdate = cdate.split(' ', 1)[0]
             # print(cdate)
     #fill with zeros the date if wrong format (ex. 6/6/1534 becomes 06/06/1534)
-    cdate='/'.join(x.zfill(2) for x in cdate.split('/'))
+    #cdate='/'.join(x.zfill(2) for x in cdate.split('/'))
+    cdate=filldate(cdate)
     return cdate
 
 def check_date_format(cdate,mapDocId, position): 
