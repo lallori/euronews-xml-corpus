@@ -1,12 +1,14 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python3
 # Authors Lorenzo Allori <lorenzo.allori@gmail.con>, Wouter Kreuze <kreuzewp@gmail.com>
-# ver. 1.0
-# Todo - addurls to documents.
+# ver. 1.1
+# TODO 
+# - addurls to documents
+# - add IIIF to documents
+# - clean files and remove globals
 
 # File operations
 import os
 import sys
-from configparser import SafeConfigParser
 import time
 
 # Mysql section
@@ -18,16 +20,18 @@ import xml.etree.cElementTree as ET
 from lxml import etree
 from io import StringIO
 import xml.dom.minidom
-from datetime import datetime
 import re
+import operator
 
 # JSON Section
 import json
 import jsbeautifier
 
 # Others Section
-from geopy.geocoders import Nominatim
-
+from modules.geo_functs import * 
+from modules.configParser_functs import *
+from modules.mysql_funct import *
+from modules.utils_funct import *
 
 # Script parameters
 if len(sys.argv) != 2: 
@@ -45,61 +49,46 @@ else:
     exit()
 
 # SQL Queries
-# Documents list to Exclude from queries
-documentListToExclude="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,50447,50449,50450,50454,50863,50879,51452,51495,51610,51611,51629,51742,51750,52065,52079"
+# Documents list to Exclude from queries (transcriptions should be reordered to create xml -- check function put_transcription_in_order() )
+cannot_fix_docs="50730,51110,51904,52079,52372,52530,53126" #not finished
+all_docs_to_reorder_transcr="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,27408,28432,50431,50447,50449,50450,50454,50730,50863,50879,51110,51452,51495,51610,51611,51629,51742,51750,52065,52079,52644,52908,51984,52079,52372,52530,52908"
+docs_to_reorder_transcr_1575="9944,27231,27250,27154,27230,27263,27288,51452,51495,51610,51611,51629,51742,51750,52644,52908,53210"
+documents_to_process_separately=all_docs_to_reorder_transcr
+# Set this to 1 if you want to include the above documents
+putExcludedDocs=0
 
 # Test query do not use
-#qGetDocumentsExp1600="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
+qGet1600="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1600' or docModernYear = '1600') and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
 # Query for All news
-qGetAllNews="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
-
+qGetAllNews="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
+# Use this not to include excluded documents to be finished
+qGetAllNewsExcl="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+","+cannot_fix_docs+")) order by documentEntityId,uploadedFileId"
+print(qGetAllNewsExcl)
+input('asd')
 # Query to Get Avvisi only
-qGetAvvisi="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
+qGetAvvisi="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
 # Query to Get News-other (to check condition typology)
-qGetNewOther="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News Other' and flgLogicalDelete = 0 and documentEntityId not in ("+documentListToExclude+")) order by documentEntityId,uploadedFileId"
+qGetNewOther="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News Other' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
-qGetDocuments=qGetAvvisi
+qGetNewsWithTimeSpan="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1575' or docModernYear = '1575') and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
+
+qGetDocuments=qGetAllNewsExcl
+# qGetDocuments=qGet1600
 
 
 # Files involved
-configFile="configFile.ini"
-
+# configFile is defined in modules/configParser_functs.py
 filename="xml_corpus.xml"
 filenametmp="xml_tmp.xml"
 filename_test='xml_corpus_test.xml'
 filenamewithids="xml_corpus_with_ids.xml"
 newCorpusFile = "newCorpusFile.xml"
-locationDictFile = "locationDict.txt"
+# locationDictFile is defined in modules/geo_functs.py
 
-
-# Get config properties
-host=str()
-port=str()
-user=str()
-passwd=str()
-database=str()
-
-if os.path.isfile(configFile):
-    parser = SafeConfigParser()
-    parser.read(configFile)
-    myhost=parser.get('MYSQLDATABASE', 'mysql.host')
-    myport=parser.get('MYSQLDATABASE', 'mysql.port')
-    myuser=parser.get('MYSQLDATABASE', 'mysql.user')
-    mypasswd=parser.get('MYSQLDATABASE', 'mysql.passwd')
-    mydbname=parser.get('MYSQLDATABASE', 'mysql.dbname')
-else:
-    print("Config file not found")
-
-# Mysql Connection properties
-mydb = mysql.connector.connect(
-        host=myhost,
-        port=myport,
-        user=myuser,
-        passwd=mypasswd,
-        database=mydbname
-        )
+# Get configfile properties
+myhost,myport,myuser, mypasswd, mydbname=read_configfile()
 
 # Setting other globals
 prettyxml = ""
@@ -119,29 +108,6 @@ docsWithXML=list()
 docsMaybeWithoutXML=list()
 docsWithoutXML=list()
 totalDocumentsCount=""
-
-# Get Date and Time
-def currentDateAndTime():
-    now = datetime.now()
-    current_date = now.strftime("%Y-%m-%d")
-    current_time = now.strftime("%H:%M:%S")
-    return current_date, current_time
-    # print(current_date + ' '  + current_time)
-
-# Test Database connection
-def test_connection(): 
-    try:
-        global mydb
-        if mydb.is_connected():
-            db_Info = mydb.get_server_info()
-            print("Connected to MySQL Server version ", db_Info)
-            cursor = mydb.cursor()
-            cursor.execute("select database();")
-            record = cursor.fetchone()
-            print("You're connected to database: ", record)
-    except Error as e:
-        print("Error while connecting to MySQL", e)
-###### TEST FUNCTIONS
 
 
 ###### PROD FUNCTIONS
@@ -170,13 +136,7 @@ def getDocFields(docId):
     global placeOfOrigin
 
     try:
-        mydb = mysql.connector.connect(
-        host=myhost,
-        port=myport,
-        user=myuser,
-        passwd=mypasswd,
-        database=mydbname
-        )
+        mydb = db_connection()
         mycursor = mydb.cursor()        
 
         # Get Basic Doc Fields from tblDocumentEnts
@@ -217,40 +177,50 @@ def getDocFields(docId):
     except Error as e:
         print("Error while connecting to MySQL", e)
 
-def loadGeoLocationsFile():
-    global locationDict
-    if os.path.isfile('./'+locationDictFile):
-        dictionary = json.load(open(locationDictFile))
-        locationDict = dictionary
-    else:
-        locationDict = {}
+def put_transcription_in_order(docId):
+    docId=str(docId)
+    try:
+        mydb = db_connection()
+        mycursor = mydb.cursor() 
+    except:
+        print('Connection to db failed')
+        sys.exit()
 
+    getTranscription='select uploadedFileId,transcription from tblDocTranscriptions where documentEntityId='
 
-def getGeoCoordinates(city):
-    global locationDict
-    geolocator = Nominatim(user_agent='myapplication')
-    if city in locationDict:
-        if 'lat' in locationDict[city]:
-            latitude=locationDict[city]['lat']
-        else:
-            latitude = ""
-        if 'long' in locationDict[city]:
-            longitude=locationDict[city]['long']
-        else:
-            longitude = ""
-    else:
-        locationDict[city] = {}
-        location = geolocator.geocode(city)
-        if location != None:    
-            latitude=str(location.latitude)
-            longitude=str(location.longitude)
-            locationDict.setdefault(city, [])
-            locationDict[city]['lat'] = latitude
-            locationDict[city]['long'] = longitude
-        else:
-            latitude = ""
-            longitude = ""
-    return latitude, longitude
+    getTranscriptions=getTranscription+docId
+    mycursor.execute(getTranscriptions)
+
+    results = mycursor.fetchall()
+
+    folios=[] # create list
+    
+    for document in results:
+        uploadedFileId=document[0]
+        transcription=document[1]
+        # print(uploadedFileId)
+        getFolio='select folioNumber,rectoverso from tblUploadFilesFolios where uploadedFileId='
+        getFolio=getFolio+str(uploadedFileId)
+        mycursor.execute(getFolio)
+        folioprop = mycursor.fetchall()        
+        folioNumber=folioprop[0][0]
+        rectoverso=folioprop[0][1]
+        folios.append([folioNumber,rectoverso,uploadedFileId,transcription])
+        # print(str(folios))
+        # TODO check for null values and noNumb=1    
+
+    sortedFolios=sorted(folios, key=operator.itemgetter(0, 1))
+
+    orderedTransc=""
+    for record in sortedFolios:
+        orderedTransc=orderedTransc+record[3]
+
+    # clean scren 
+    print(chr(27) + "[2J")
+    # processing count
+    print('--> Re-ordering transcriptions in documents')
+    print('Processing document: ' + docId)
+    return orderedTransc
 
 def createXmlForDocsWithoutXml():
     with open(filename, "r+", encoding = "utf-8") as f:
@@ -293,28 +263,22 @@ def createXmlForDocsWithoutXml():
 
 # Write corpus file
 def create_rough_xml():
-    global mydb
+    global mydb, cannot_fix_docs
     with open(filenametmp, 'w') as f:
         current_time=currentDateAndTime()
         # Header content of the xml file
-        def printheader():
-            f.write('<?xml version="1.0"?>\n')
-            
-            f.write('<news xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n')
-            f.write('\txsi:noNamespaceSchemaLocation="news.xsd">\n\n')
-
-            # f.write('<news>\n')
-            f.write('<xmlCorpusDate>' + current_time[0] + '</xmlCorpusDate>\n')
-            f.write('<xmlCorpusTime>' + current_time[1] + '</xmlCorpusTime>\n')
+        f.write('<?xml version="1.0"?>\n')
+        f.write('<news xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n')
+        f.write('\txsi:noNamespaceSchemaLocation="news.xsd">\n\n')
+        f.write('<xmlCorpusDate>' + current_time[0] + '</xmlCorpusDate>\n')
+        f.write('<xmlCorpusTime>' + current_time[1] + '</xmlCorpusTime>\n')
            
         try:
-            mydb
+            mydb = db_connection()
             mycursor = mydb.cursor()
             mycursor.execute(qGetDocuments)
 
             myresult = mycursor.fetchall()
-
-            printheader()
 
             # define list with documents which do not contain XML
             global docsWithXML            
@@ -337,28 +301,68 @@ def create_rough_xml():
             
             # Converting into tuples
             docsWithXMLT=tuple(docsWithXML)
+
+            # Creating and launch query to get all the transcriptions which is actually all the XML 
             qGetTranscriptions="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in {}".format(docsWithXMLT)
-            
-            mydb
-            mycursor = mydb.cursor()
             mycursor.execute(qGetTranscriptions)
             myresult = mycursor.fetchall()
 
             if includeNoXMLDocs is True:
                 for x in myresult:
-                    # put each entry in file (URI to be added)
+                    # put each entry in file 
                     f.write('<docid>'+str(x[0])+'</docid>\n')
+                    # (URI to be added here)
+                    # 
                     f.write('\t\t'+x[1]+'\n')
-                f.write('</newsDocument>\n')
-                f.write('</news>\n')
+                    
+                
+                 # Include excluded docs (not ordered transcr)
+                if putExcludedDocs == 1:
+                    docs_transcr_to_be_ordered = documents_to_process_separately.split (",")
+                    # remove "cannot fix" documents
+                    cannot_fix_docs=cannot_fix_docs.split(",")
+                    for x in cannot_fix_docs:
+                        try: 
+                            docs_transcr_to_be_ordered.remove(x)
+                        except ValueError:
+                            print("Cannot fix document: "+x+" is not in list")
+                            pass
+            
+                    for docId in docs_transcr_to_be_ordered:
+                        f.write('<docid>'+str(docId)+'</docid>\n')
+                        xmltrascr=put_transcription_in_order(docId)
+                        f.write('\t\t'+xmltrascr+'\n')
+                    f.write('</news>\n')
+                else: 
+                    f.write('</news>\n')
 
             else:
                 for x in myresult:
                     # put each entry in file (URI to be added)
                     f.write('<docid>'+str(x[0])+'</docid>\n')
+                    # Put Document MIA URI here
+                    #f.write('<miaDocumentUri>https://mia.medici.org/Mia/index.html#/mia/document-entity/'+str(x[0])+'</miaDocumentUri>')
                     f.write('\t\t'+x[1]+'\n')
+                
+                # Include excluded docs (not ordered transcr)
+                if putExcludedDocs == 1:
+                    docs_transcr_to_be_ordered = documents_to_process_separately.split (",")
+                    # remove "cannot fix" documents
+                    cannot_fix_docs=cannot_fix_docs.split(",")
+                    for x in cannot_fix_docs:
+                        try: 
+                            docs_transcr_to_be_ordered.remove(x)
+                        except ValueError:
+                            print("Cannot fix document: "+x+" is not in list")
+                            pass
 
-                f.write('</news>\n') 
+                    for docId in docs_transcr_to_be_ordered:
+                        f.write('<docid>'+str(docId)+'</docid>\n')
+                        xmltrascr=put_transcription_in_order(docId)
+                        f.write('\t\t'+xmltrascr+'\n')
+                    f.write('</news>\n')
+                else:
+                    f.write('</news>\n') 
 
             # Print totals
             # print(len(allDocs))
@@ -382,6 +386,9 @@ def check_formatted_xml():
         xml_to_check = f.read()
 
         try:
+            # remove empty newsDocuments
+            xml_to_check=xml_to_check.replace('<newsDocument>\n</newsDocument>','')
+
             etree.parse(StringIO(xml_to_check))
             print('XML well formed, syntax ok.')
 
@@ -405,7 +412,7 @@ def check_formatted_xml():
 def prettyXml():
     global prettyxml
     dom = xml.dom.minidom.parse(filename)
-    
+
     prettyxml = dom.toprettyxml()
 
     lines = prettyxml.split("\n")
@@ -455,6 +462,9 @@ def fix_NewsDocument():
         pass
     else:
         prettyxml = re.sub('</news>$','</newsDocument>\n</news>',prettyxml)
+    
+    # Remove empty newsDocument tags
+    prettyxml=prettyxml.replace('<newsDocument>\n</newsDocument>','')
 
     with open(filename, 'w') as f:
         f.write(prettyxml)
@@ -473,12 +483,11 @@ def add_ArchivalProperties():
         for docId in re.findall(r'(?:<docid>)(\d+)', prettyxml):
             qGetUploaded="select uploadedFileId from tblDocTranscriptions where documentEntityId ="+docId
             
-            mydb
+            mydb = db_connection()
             mycursor1 = mydb.cursor()
             mycursor1.execute(qGetUploaded)
             myresult1 = mycursor1.fetchall()
             uploadFileId=str(myresult1[0][0])
-            # print(uploadFileId)
             
             qGetRepoColl="select repository, collectionName from tblCollections where id in (select collection from tblUploads where id in (select idTblUpload from tblUploadedFiles where id ='" + uploadFileId +"'))"
             mycursor1.execute(qGetRepoColl)
@@ -499,7 +508,7 @@ def add_ArchivalProperties():
             # print("\b" * len(message), end="", flush=True)
             print(chr(27) + "[2J")
             # processing count
-            print('Documents processed: ' + str(count))
+            print('--> Getting Archival Properties for each document --- documents processed: ' + str(count))
             totalDocumentsCount=str(count)
         
     with open(filename, 'w') as f:
@@ -564,7 +573,6 @@ def addGeoCoordToXml():
 
     count=0
     for x in root.iter('from'):
-        print("qui")
         # print(x.text)
         city = x.text
         # Removing hub/from/plTransit value
@@ -584,7 +592,7 @@ def addGeoCoordToXml():
                 geocoord=getGeoCoordinates(city)
                 latitude=geocoord[0]
                 longitude=geocoord[1]
-                print("From"  +longitude)
+                # print("From"  +longitude)
 
                 if latitude and longitude:
                     locationTag = ET.Element('location', dict(lon=longitude, lat=latitude))
@@ -593,9 +601,9 @@ def addGeoCoordToXml():
             pass
         count+=1
         # clean scren 
-        # print(chr(27) + "[2J")
+        print(chr(27) + "[2J")
         # processing count
-        print('News places: ' + str(count))
+        print('--> Adding places: ' + str(count) + 'please wait...')
 
     count=0
     for x in root.iter('plTransit'):
@@ -626,9 +634,9 @@ def addGeoCoordToXml():
             pass
         count+=1
         # clean scren 
-        # print(chr(27) + "[2J")
+        print(chr(27) + "[2J")
         # processing count
-        print('Place of Transit places: ' + str(count))
+        print('--> Place of Transit places: ' + str(count) + 'please wait...')
     
     # Update location dictionary file
     with open(locationDictFile, 'w') as f:
@@ -646,30 +654,35 @@ def addGeoCoordToXml():
 #### RUN
 def main():
     test_connection()
-    print('Connection to DB ok!')
+    print('--> Connection to DB ok!')
     print('')
-    print('Loading..')
+    print('--> Creating Rough XML')
     create_rough_xml()
-    print('- Rough XML ok!')
+    print('')
+    print('--> Rough XML ok!')
     ##check_formatted_xml()
     fix_NewsDocument()
+    # input('break')
     fix_newsHeader()
     print('')
-    print('- News Document and News Header ok!')
+    print('--> News Document and News Header ok!')
     print('')
     if includeNoXMLDocs is True:
         createXmlForDocsWithoutXml()
-        print('- Included documents without XML ok!')
+        print('--> Included documents without XML ok!')
         print('')
     print('')
     add_ArchivalProperties()
     finalizeXmlCorpus()
     check_formatted_xml()
-    print('- XML Corpus finalized ok!!')
+    print('--> XML Corpus finalized ok!!')
     print('')
     print('Adding geo coordinates... this could take time!')
     addGeoCoordToXml()
-    print('- Added geo coordinates attributes! - check xml-corpus-geo.xml')
+    
+    # clean screen before giving final results.
+    print(chr(27) + "[2J")
+    print('--XML Corpus Ready!--')
     print('')
     print('Total documents added:'+totalDocumentsCount)
     print('')

@@ -1,26 +1,15 @@
-DELETE euronewsp2pk
-PUT euronewsp2pk
+DELETE prova2 
+PUT prova2
 {
-  "mappings":{
-     "properties":{
-        "miadocid": {
-           "type":"keyword"
-        },
-        "hub":{
-           "properties":{
-              "date":{
-                 "type":"date",
-                 "format":"dd/MM/yyyy"
-              },
-              "location":{
-                 "type":"geo_point"
-              },
-              "placeName":{
-                 "type":"text"
-              }
-           }
-        },
-        "from":{
+   "mappings":{
+      "properties":{
+         "newsId":{
+            "type":"text"
+         },
+         "miaDocId":{
+            "type":"keyword"
+         },
+         "hub":{
             "properties":{
                "date":{
                   "type":"date",
@@ -34,12 +23,29 @@ PUT euronewsp2pk
                }
             }
          },
-         "transcription": {
+         "from":{
+            "properties":{
+               "date":{
+                  "type":"date",
+                  "format":"dd/MM/yyyy"
+               },
+               "location":{
+                  "type":"geo_point"
+               },
+               "placeName":{
+                  "type":"text"
+               }
+            }
+         },
+         "transcription":{
             "type":"text"
-        },
-        "transcriptionk": {
-         "type":"keyword"
-     }
-     }
-  }
+         },
+         "transcriptionk":{
+            "type":"keyword"
+         },
+         "newsPosition":{
+            "type":"text"
+         }
+      }
+   }
 }
