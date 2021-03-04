@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" attributeFormDefault="unqualified" elementFormDefault="qualified">
+  <xs:element name="news">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element type="xs:date" name="xmlCorpusDate"/>
+        <xs:element type="xs:time" name="xmlCorpusTime"/>
+        <xs:element name="newsDocument" maxOccurs="unbounded" minOccurs="0">
+          <xs:complexType mixed="true">
+            <xs:sequence>
+              <xs:element type="xs:int" name="docid"/>
+              <xs:element type="xs:string" name="repository"/>
+              <xs:element type="xs:string" name="collection"/>
+              <xs:element type="xs:string" name="volume"/>
+              <xs:element name="newsFrom" maxOccurs="unbounded" minOccurs="0">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element type="xs:string" name="from"/>
+                    <xs:element type="xs:string" name="fromUnsure" minOccurs="0"/>
+                    <xs:element type="xs:string" name="date" minOccurs="0"/>
+                    <xs:element name="plTransit" minOccurs="0">
+                      <xs:complexType>
+                        <xs:simpleContent>
+                          <xs:extension base="xs:string">
+                            <xs:attribute type="xs:string" name="date" use="optional"/>
+                            <xs:attribute type="xs:byte" name="stage" use="optional"/>
+                          </xs:extension>
+                        </xs:simpleContent>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element type="xs:string" name="transc"/>
+                    <xs:element type="xs:string" name="newsTopic" maxOccurs="unbounded" minOccurs="0"/>
+                    <xs:element type="xs:string" name="wordCount"/>
+                    <xs:element type="xs:string" name="position"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="newsHeader" maxOccurs="unbounded" minOccurs="0">
+                <xs:complexType mixed="true">
+                  <xs:sequence>
+                    <xs:element type="xs:string" name="hub"/>
+                    <xs:element type="xs:string" name="hubUnsure" minOccurs="0"/>
+                    <xs:element type="xs:string" name="date"/>
+                    <xs:element type="xs:string" name="dateUnsure" minOccurs="0"/>
+                    <xs:element type="xs:string" name="plTransit" minOccurs="0"/>
+                    <xs:element type="xs:string" name="plTransitDate" minOccurs="0"/>
+                    <xs:element type="xs:string" name="transc" minOccurs="0"/>
+                    <xs:element name="newsFrom" maxOccurs="unbounded" minOccurs="0">
+                      <xs:complexType mixed="true">
+                        <xs:choice maxOccurs="unbounded" minOccurs="0">
+                          <xs:element name="from">
+                            <xs:complexType>
+                              <xs:simpleContent>
+                                <xs:extension base="xs:string">
+                                  <xs:attribute type="xs:string" name="date" use="optional"/>
+                                  <xs:attribute type="xs:string" name="dateUnsure" use="optional"/>
+                                  <xs:attribute type="xs:string" name="fromUnsure" use="optional"/>
+                                </xs:extension>
+                              </xs:simpleContent>
+                            </xs:complexType>
+                          </xs:element>
+                          <xs:element name="plTransit">
+                            <xs:complexType>
+                              <xs:simpleContent>
+                                <xs:extension base="xs:string">
+                                  <xs:attribute type="xs:string" name="date" use="optional"/>
+                                  <xs:attribute type="xs:string" name="dateUnsure" use="optional"/>
+                                  <xs:attribute type="xs:byte" name="stage" use="optional"/>
+                                  <xs:attribute type="xs:string" name="refersToPlace" use="optional"/>
+                                  <xs:attribute type="xs:string" name="via" use="optional"/>
+                                </xs:extension>
+                              </xs:simpleContent>
+                            </xs:complexType>
+                          </xs:element>
+                          <xs:element name="transc">
+                            <xs:complexType mixed="true">
+                              <xs:sequence>
+                                <xs:element name="newsFrom" maxOccurs="unbounded" minOccurs="0">
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element name="from" maxOccurs="unbounded" minOccurs="0">
+                                        <xs:complexType>
+                                          <xs:simpleContent>
+                                            <xs:extension base="xs:string">
+                                              <xs:attribute type="xs:string" name="fromUnsure" use="optional"/>
+                                              <xs:attribute type="xs:string" name="date" use="optional"/>
+                                              <xs:attribute type="xs:string" name="dateUnsure" use="optional"/>
+                                            </xs:extension>
+                                          </xs:simpleContent>
+                                        </xs:complexType>
+                                      </xs:element>
+                                      <xs:element type="xs:string" name="transc"/>
+                                      <xs:element type="xs:string" name="wordCount"/>
+                                      <xs:element type="xs:byte" name="position"/>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                              </xs:sequence>
+                              <xs:attribute type="xs:string" name="date" use="optional"/>
+                              <xs:attribute type="xs:string" name="dateUnsure" use="optional"/>
+                              <xs:attribute type="xs:byte" name="stage" use="optional"/>
+                            </xs:complexType>
+                          </xs:element>
+                          <xs:element type="xs:string" name="wordCount"/>
+                          <xs:element type="xs:string" name="position"/>
+                          <xs:element name="newsTopic">
+                            <xs:complexType>
+                              <xs:simpleContent>
+                                <xs:extension base="xs:string">
+                                  <xs:attribute type="xs:string" name="date" use="optional"/>
+                                  <xs:attribute type="xs:string" name="dateUnsure" use="optional"/>
+                                </xs:extension>
+                              </xs:simpleContent>
+                            </xs:complexType>
+                          </xs:element>
+                          <xs:element type="xs:string" name="date"/>
+                          <xs:element name="newsHeader">
+                            <xs:complexType mixed="true">
+                              <xs:sequence>
+                                <xs:element type="xs:string" name="hub"/>
+                                <xs:element type="xs:string" name="date"/>
+                                <xs:element type="xs:string" name="dateUnsure"/>
+                                <xs:element type="xs:string" name="transc"/>
+                                <xs:element name="newsFrom" maxOccurs="unbounded" minOccurs="0">
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element type="xs:string" name="from"/>
+                                      <xs:element type="xs:string" name="transc"/>
+                                      <xs:element type="xs:byte" name="wordCount"/>
+                                      <xs:element type="xs:byte" name="position"/>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                              </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:choice>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
