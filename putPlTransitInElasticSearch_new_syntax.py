@@ -15,20 +15,14 @@ from modules.utils_funct import *
 from modules.geo_functs import *
 
 # xmlcorpus="xml_corpus.xml"
-xmlcorpus="test.xml"
-# xmlcorpus="xml_corpus_new_syntax.xml"
+# xmlcorpus="test.xml"
+xmlcorpus="xml_corpus_new_syntax.xml"
 
 newstransitxmlcorpusfile="test.xml"
 location_dict_file = "locationDict.txt"
 
 # Elasticsearch section
 esindexname='euronews_pltransit'
-esauth=0
-if esauth==1:
-    es = Elasticsearch(['http://localhost:9200'], http_auth=(esuser, espassword))
-else:
-    es = Elasticsearch()
-
 
 # define globals
 location_dict = {}
@@ -173,15 +167,8 @@ def create_es_index():
         }
     }
 
-    # Deleting previous Index
-    res = Elasticsearch().indices.delete(index=esindexname, ignore=[400,404])
-    print('Deleting ES Index '+esindexname+' response:'+str(res))
-    
-    # Creating new Index
-    res = Elasticsearch().indices.create(index=esindexname, body=mapping, ignore=400)
-    print('')
-    print('Creating ES Index '+esindexname+' response:'+str(res))
-    time.sleep(3)
+    #Deleting and creating es index
+    createIndexElasticsearch(esindexname,mapping)
 
 
 def put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
