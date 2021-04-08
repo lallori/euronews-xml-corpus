@@ -5,14 +5,13 @@
 # ver 1.0
 # ElasticSearch functions are in ./modules/elastic_funct.py
 # This can be used only if we have <from> tag with the new syntax (with date attributes etc.)
-# 
-# TODO -- ELK 
-# -> remove els field from.fromUnsure
-# -> add link to miadocument (url) (done! --- to be tested)
-# -> add topics in elk documents (done! --- to be tested)
+# To be tested
 # N.B. In Kibana, if you go to the Index pattern in Settings or Management 
 # you can set the format for your URL to be URL. That makes it a clickable link in Discover. 
-# -> check why collection and volume are not populated in elk documents (done! -- to be tested)
+# TODO -- ELK 
+# -> remove plTransit section from index 
+# -> remove els field from.fromUnsure
+# -> add document thumbnail using IIIF
 
 import xml.etree.cElementTree as ET
 from datetime import datetime
