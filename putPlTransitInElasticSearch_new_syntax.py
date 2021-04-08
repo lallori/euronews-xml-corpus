@@ -15,14 +15,14 @@ from modules.utils_funct import *
 from modules.geo_functs import *
 
 # xmlcorpus="xml_corpus.xml"
-# xmlcorpus="test.xml"
-xmlcorpus="xml_corpus_new_syntax.xml"
+xmlcorpus="test.xml"
+# xmlcorpus="xml_corpus_new_syntax.xml"
 
 newstransitxmlcorpusfile="test.xml"
 location_dict_file = "locationDict.txt"
 
 # Elasticsearch section
-esindexname='pltransit'
+esindexname='euronews_pltransit'
 esauth=0
 if esauth==1:
     es = Elasticsearch(['http://localhost:9200'], http_auth=(esuser, espassword))

@@ -61,10 +61,10 @@ def getGeoCoordinates(city):
             latitude = ""
             longitude = ""
     
-    # Update location dictionary file
-    with open(locationDictFile, 'w') as f:
-        f.write(json.dumps(locationDict))
-        f.close()
+        # Update location dictionary file
+        with open(locationDictFile, 'w') as f:
+            f.write(json.dumps(locationDict))
+            f.close()
     
     prettyJsonLocationDict()
 
