@@ -8,12 +8,11 @@ from modules.configParser_functs import *
 # Get elasticsearch properties
 eshost,esport,esuser,espassword = elastic_properties()
 
-# Es authentication (default is 1)
+# Es authentication (1 is without es authentication, 0 is with authentication - auth parameters are in configFile.ini)
 esauth=1
 if esauth==0:
     es = Elasticsearch(['http://'+eshost+':'+esport], http_auth=(esuser, espassword), timeout=120)
     print(es)
-    input('asd')
 else:
     es = Elasticsearch()
 

@@ -55,6 +55,24 @@ def check_date_es(cdate, mapDocId, position):# DO NOT USE - This has to be teste
         print('Document: [' + mapDocId+'-'+position+'] - date is uncorrecly formatted pls check')
         sys.exit()
 
+def check_place(cplace):
+    comma=","
+    cplace=cplace.lstrip()
+    cplace=cplace.rstrip()
+    if cplace == 'NA':
+        print('Place set to NA---> problem') # TODO log to file!
+        pass
+    if cplace != None:
+        if cplace != 'na' and cplace != 'NA' and cplace !='Na' and cplace !='[loss]' and cplace !='[unsure]' and cplace !='xxx':
+            if comma in cplace:
+                #cplace = cplace.replace(comma, " ")
+                cplace = cplace.split(', ', 1)[0]
+            else:
+                pass     
+    else:
+        pass
+    return cplace
+
 
 def logToFile(logfile, message):
     logf=open(logfile, "a+")

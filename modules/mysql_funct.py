@@ -46,6 +46,7 @@ def db_connection():
             record = cursor.fetchone()
         return mydb
     except Error as e:
-        print("Error while connecting to MySQL", e)
+        print("Error while connecting to MySQL---NEED SSH TUNNEL?", e)
+        exit()
 
 
