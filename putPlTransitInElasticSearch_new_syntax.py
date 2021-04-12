@@ -22,7 +22,7 @@ newstransitxmlcorpusfile="test.xml"
 location_dict_file = "locationDict.txt"
 
 # Elasticsearch section
-esindexname='pltransit'
+esindexname='euronews_pltransit'
 
 # define globals
 location_dict = {}
@@ -114,6 +114,15 @@ def create_es_index():
                 "miaDocURL":{
                     "type":"text"
                 },
+                "repository":{
+                    "type":"text"
+                },
+                "collection":{
+                    "type":"text"
+                },
+                "volume":{
+                    "type":"text"
+                },
                 "source":{
                     "properties":{
                         "date":{
@@ -178,7 +187,7 @@ def create_es_index():
     createIndexElasticsearch(esindexname,mapping)
 
 
-def put_document_es_index(esindexname,newsId,miaDocId,srcPlTransitDate,srcDateUnsure,\
+def put_document_es_index(esindexname,newsId,miaDocId,repository,collection,volume,srcPlTransitDate,srcDateUnsure,\
     srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
     destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
     stage ,transcription,ifhub):
@@ -254,6 +263,9 @@ def put_document_es_index(esindexname,newsId,miaDocId,srcPlTransitDate,srcDateUn
         "newsId":newsId,
         "miaDocId":miaDocId,
         "miaDocURL":miaUrlPrefix+miaDocId,
+        "repository":repository,
+        "collection":collection,
+        "volume":volume,
         "source":{
             "date": srcPlTransitDate,
             "date-unsure": srcDateUnsure,
@@ -305,6 +317,9 @@ def populate_es_index():
     # Start querying the dataset
     for document in root.iter('newsDocument'):
         miaDocId=document.find('docid').text
+        repository=document.find('repository').text
+        collection=document.find('collection').text
+        volume=document.find('volume').text
          ### Header section ###
         for header in document.iter('newsHeader'):
             # Get Hub Name
@@ -425,7 +440,7 @@ def populate_es_index():
 
                     # Crating ES Document for ENDPOINT
                     try:
-                        put_document_es_index(esindexname,newsId,miaDocId,srcPlTransitDate,srcDateUnsure,\
+                        put_document_es_index(esindexname,newsId,miaDocId,repository,collection,volume,srcPlTransitDate,srcDateUnsure,\
                                             srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
                                             destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
                                             stage ,transcription, ifhub)
@@ -508,7 +523,7 @@ def populate_es_index():
 
                             # Crating ES Document for Middle Transit
                             try:
-                                put_document_es_index(esindexname,newsId,miaDocId,srcPlTransitDate,srcDateUnsure,\
+                                put_document_es_index(esindexname,newsId,miaDocId,repository,collection,volume,srcPlTransitDate,srcDateUnsure,\
                                                     srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
                                                     destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
                                                     stage ,transcription,ifhub)
