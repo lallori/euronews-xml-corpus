@@ -22,11 +22,12 @@ newstransitxmlcorpusfile="test.xml"
 location_dict_file = "locationDict.txt"
 
 # Elasticsearch section
-esindexname='euronews_pltransit'
+esindexname='pltransit'
 
 # define globals
 location_dict = {}
 dateunsuremsg = "date can be approximate"
+miaUrlPrefix="https://mia.medici.org/Mia/index.html#/mia/document-entity/"
 
 
 def check_date_trans(cdate,ctype,parentdate):
@@ -107,6 +108,12 @@ def create_es_index():
                 "newsId":{
                     "type":"text"
                 },
+                "miaDocId":{
+                    "type":"keyword"
+                },
+                "miaDocURL":{
+                    "type":"text"
+                },
                 "source":{
                     "properties":{
                         "date":{
@@ -171,7 +178,7 @@ def create_es_index():
     createIndexElasticsearch(esindexname,mapping)
 
 
-def put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
+def put_document_es_index(esindexname,newsId,miaDocId,srcPlTransitDate,srcDateUnsure,\
     srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
     destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
     stage ,transcription,ifhub):
@@ -245,6 +252,8 @@ def put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
     
     esDoc = {
         "newsId":newsId,
+        "miaDocId":miaDocId,
+        "miaDocURL":miaUrlPrefix+miaDocId,
         "source":{
             "date": srcPlTransitDate,
             "date-unsure": srcDateUnsure,
@@ -416,7 +425,7 @@ def populate_es_index():
 
                     # Crating ES Document for ENDPOINT
                     try:
-                        put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
+                        put_document_es_index(esindexname,newsId,miaDocId,srcPlTransitDate,srcDateUnsure,\
                                             srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
                                             destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
                                             stage ,transcription, ifhub)
@@ -499,7 +508,7 @@ def populate_es_index():
 
                             # Crating ES Document for Middle Transit
                             try:
-                                put_document_es_index(esindexname,newsId,srcPlTransitDate,srcDateUnsure,\
+                                put_document_es_index(esindexname,newsId,miaDocId,srcPlTransitDate,srcDateUnsure,\
                                                     srcDateNotes,srcPlTransitLat,srcPlTransitLon,srcPlTransitName,destPlTransitDate,\
                                                     destDateUnsure,destDateNotes,destPlTransitLat,destPlTransitLon,destPlTransitName,\
                                                     stage ,transcription,ifhub)
