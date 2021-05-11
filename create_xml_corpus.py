@@ -2,6 +2,7 @@
 # Authors Lorenzo Allori <lorenzo.allori@gmail.con>, Wouter Kreuze <kreuzewp@gmail.com>
 # ver. 1.1
 # TODO 
+# - add titles to volumes
 # - addurls to documents
 # - add IIIF to documents
 # - clean files and remove globals
@@ -50,8 +51,8 @@ else:
 
 # SQL Queries
 # Documents list to Exclude from queries (transcriptions should be reordered to create xml -- check function put_transcription_in_order() )
-cannot_fix_docs="50730,51110,51904,52079,52372,52530,53126" #not finished
-all_docs_to_reorder_transcr="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,27408,28432,50431,50447,50449,50450,50454,50730,50863,50879,51110,51452,51495,51610,51611,51629,51742,51750,52065,52079,52644,52908,51984,52079,52372,52530,52908"
+cannot_fix_docs="50730,51110,51904,52079,52372,52530,53126,53276,27291,51464,51469,51473,51477,51502,51515,51737,51738,52470,52803" #not finished
+all_docs_to_reorder_transcr="8196,9944,27231,27250,27131,27154,27155,27230,27263,27288,27408,28432,50431,50447,50449,50450,50454,50730,50863,50879,51110,51452,51495,51610,51611,51629,51742,51750,52065,52079,52644,52908,51984,52079,52372,52530,52908,52087"
 docs_to_reorder_transcr_1575="9944,27231,27250,27154,27230,27263,27288,51452,51495,51610,51611,51629,51742,51750,52644,52908,53210"
 documents_to_process_separately=all_docs_to_reorder_transcr
 # Set this to 1 if you want to include the above documents
@@ -64,8 +65,8 @@ qGet1600="select documentEntityId, transcription from tblDocTranscriptions where
 qGetAllNews="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 # Use this not to include excluded documents to be finished
 qGetAllNewsExcl="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+","+cannot_fix_docs+")) order by documentEntityId,uploadedFileId"
-print(qGetAllNewsExcl)
-input('asd')
+# print(qGetAllNewsExcl)
+# input('asd')
 # Query to Get Avvisi only
 qGetAvvisi="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where typology='Avviso' and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
@@ -74,9 +75,12 @@ qGetNewOther="select documentEntityId, transcription from tblDocTranscriptions w
 
 qGetNewsWithTimeSpan="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where category='News' and (docYear='1575' or docModernYear = '1575') and flgLogicalDelete = 0 and documentEntityId not in ("+all_docs_to_reorder_transcr+")) order by documentEntityId,uploadedFileId"
 
-qGetDocuments=qGetAllNewsExcl
-# qGetDocuments=qGet1600
+selectedDocIds="52374,53184"
+qOnlySelected="select documentEntityId, transcription from tblDocTranscriptions where documentEntityId in (select documentEntityId from tblDocumentEnts where documentEntityId in ("+selectedDocIds+")) order by documentEntityId,uploadedFileId"
 
+# qGetDocuments=qGetAllNewsExcl # USE THIS
+# qGetDocuments=qGet1600
+qGetDocuments=qOnlySelected
 
 # Files involved
 # configFile is defined in modules/configParser_functs.py
@@ -86,9 +90,6 @@ filename_test='xml_corpus_test.xml'
 filenamewithids="xml_corpus_with_ids.xml"
 newCorpusFile = "newCorpusFile.xml"
 # locationDictFile is defined in modules/geo_functs.py
-
-# Get configfile properties
-myhost,myport,myuser, mypasswd, mydbname=read_configfile()
 
 # Setting other globals
 prettyxml = ""
@@ -264,7 +265,7 @@ def createXmlForDocsWithoutXml():
 # Write corpus file
 def create_rough_xml():
     global mydb, cannot_fix_docs
-    with open(filenametmp, 'w') as f:
+    with open(filenametmp, 'w+') as f:
         current_time=currentDateAndTime()
         # Header content of the xml file
         f.write('<?xml version="1.0"?>\n')
@@ -272,6 +273,7 @@ def create_rough_xml():
         f.write('\txsi:noNamespaceSchemaLocation="news.xsd">\n\n')
         f.write('<xmlCorpusDate>' + current_time[0] + '</xmlCorpusDate>\n')
         f.write('<xmlCorpusTime>' + current_time[1] + '</xmlCorpusTime>\n')
+
            
         try:
             mydb = db_connection()
@@ -362,17 +364,20 @@ def create_rough_xml():
                         f.write('\t\t'+xmltrascr+'\n')
                     f.write('</news>\n')
                 else:
-                    f.write('</news>\n') 
+                    f.write('</news>\n')
 
             # Print totals
             # print(len(allDocs))
             # print(len(docsWithXML))
             # print(len(docsWithoutXML))
-
+            
         except Error as e:
             print("Error reading data from MySQL table", e)
 
     f.closed
+
+    fix_written_pages(filenametmp)
+    input('asd')
 
     # Remove carriage returns
     cmd = 'sed -e "s/\r//g" ' + filenametmp + ' > ' + filename
@@ -408,6 +413,24 @@ def check_formatted_xml():
             quit()
     f.closed
 
+
+def fix_written_pages(filename):
+    tree = etree.parse(filename)
+    root = tree.getroot()
+    # for document in root.iter('news'):
+    #     writtenpagesno=document.find('writtenPagesNo')
+    #     writtenpagesnovalue=document.find('writtenPagesNo').text
+    #     print(writtenpagesnovalue)
+    #     tree.remove(writtenpagesno)
+    node_root =tree.xpath('/news')[0]
+    node_wrtpage= tree.xpath('/news/writtenPagesNo')[0]
+    node_root.append(node_wrtpage)
+    etree.tostring(tree)
+
+    with open(filename, 'wb') as f:
+        tree.write(f)
+        f.close()
+    
 # Format indented xml
 def prettyXml():
     global prettyxml
@@ -454,7 +477,7 @@ def fix_NewsDocument():
         prettyxml = prettyxml.replace('<docid>'+docId+'</docid>', newsDocument+'<docid id="'+docId+'">'+'</docid>', 1)
         prettyxml = prettyxml.replace('<docid>'+docId+'</docid>', '')
         prettyxml = prettyxml.replace('<docid id="'+docId+'">'+'</docid>','<docid>'+docId+'</docid>')
-            
+
     prettyxml = prettyxml.replace('<newsDocument></newsDocument>', '')
     prettyxml = prettyxml.replace('</newsDocument>', '', 1)
 
