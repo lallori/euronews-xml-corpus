@@ -8,9 +8,11 @@
 # - clean files and remove globals
 
 # File operations
+from collections import Counter
 import os
 import sys
 import time
+import fileinput
 
 # Mysql section
 import mysql.connector
@@ -80,7 +82,7 @@ qOnlySelected="select documentEntityId, transcription from tblDocTranscriptions 
 
 # qGetDocuments=qGetAllNewsExcl # USE THIS
 # qGetDocuments=qGet1600
-qGetDocuments=qOnlySelected
+qGetDocuments=qGetAllNewsExcl
 
 # Files involved
 # configFile is defined in modules/configParser_functs.py
@@ -265,7 +267,7 @@ def createXmlForDocsWithoutXml():
 # Write corpus file
 def create_rough_xml():
     global mydb, cannot_fix_docs
-    with open(filenametmp, 'w+') as f:
+    with open(filenametmp, 'w+', encoding="utf-8") as f:
         current_time=currentDateAndTime()
         # Header content of the xml file
         f.write('<?xml version="1.0"?>\n')
@@ -376,18 +378,22 @@ def create_rough_xml():
 
     f.closed
 
-    fix_written_pages(filenametmp)
-    input('asd')
-
     # Remove carriage returns
-    cmd = 'sed -e "s/\r//g" ' + filenametmp + ' > ' + filename
-    cmd2 = 'rm ' + filenametmp
-    os.system(cmd)
-    os.system(cmd2)
+    osystem=os.name
+    if osystem == 'nt':
+        with open(filenametmp, "r", encoding="utf-8") as f:
+            corpus="".join(line for line in f if not line.isspace())
+            with open(filename, "w+", encoding='utf-8') as f:
+                f.write(corpus)
+    else:
+        cmd = 'sed -e "s/\r//g" ' + filenametmp + ' > ' + filename
+        cmd2 = 'rm ' + filenametmp
+        os.system(cmd)
+        os.system(cmd2)
 
 # Check and Formatting corpus file
 def check_formatted_xml():
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding="utf-8") as f:
         xml_to_check = f.read()
 
         try:
@@ -404,7 +410,7 @@ def check_formatted_xml():
         # check for XML syntax errors
         except etree.XMLSyntaxError as err:
             print('XML Syntax Error, see error_syntax.log')
-            with open('error_syntax.log', 'w') as error_log_file:
+            with open('error_syntax.log', 'w', encoding="utf-8") as error_log_file:
                 error_log_file.write(str(err.error_log))
             quit()
 
@@ -414,23 +420,6 @@ def check_formatted_xml():
     f.closed
 
 
-def fix_written_pages(filename):
-    tree = etree.parse(filename)
-    root = tree.getroot()
-    # for document in root.iter('news'):
-    #     writtenpagesno=document.find('writtenPagesNo')
-    #     writtenpagesnovalue=document.find('writtenPagesNo').text
-    #     print(writtenpagesnovalue)
-    #     tree.remove(writtenpagesno)
-    node_root =tree.xpath('/news')[0]
-    node_wrtpage= tree.xpath('/news/writtenPagesNo')[0]
-    node_root.append(node_wrtpage)
-    etree.tostring(tree)
-
-    with open(filename, 'wb') as f:
-        tree.write(f)
-        f.close()
-    
 # Format indented xml
 def prettyXml():
     global prettyxml
@@ -462,7 +451,7 @@ def fix_newsHeader():
     except:
         Error
     
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding="utf-8") as f:
         f.write(prettyxml)
     f.closed
 
@@ -470,14 +459,14 @@ def fix_NewsDocument():
     global prettyxml
     newsDocument = '</newsDocument>\n<newsDocument>'
 
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding="utf-8") as f:
         prettyxml = f.read()
 
     for docId in re.findall(r'(?:<docid>)(\d+)', prettyxml):
         prettyxml = prettyxml.replace('<docid>'+docId+'</docid>', newsDocument+'<docid id="'+docId+'">'+'</docid>', 1)
         prettyxml = prettyxml.replace('<docid>'+docId+'</docid>', '')
         prettyxml = prettyxml.replace('<docid id="'+docId+'">'+'</docid>','<docid>'+docId+'</docid>')
-
+            
     prettyxml = prettyxml.replace('<newsDocument></newsDocument>', '')
     prettyxml = prettyxml.replace('</newsDocument>', '', 1)
 
@@ -489,8 +478,9 @@ def fix_NewsDocument():
     # Remove empty newsDocument tags
     prettyxml=prettyxml.replace('<newsDocument>\n</newsDocument>','')
 
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding="utf-8") as f:
         f.write(prettyxml)
+    
 
 def add_ArchivalProperties():
     global prettyxml, mydb, totalDocumentsCount
@@ -500,7 +490,7 @@ def add_ArchivalProperties():
 
     print('- Adding Archival Properties to XML- please wait...')
 
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding="utf-8") as f:
         prettyxml = f.read()
         count=0
         for docId in re.findall(r'(?:<docid>)(\d+)', prettyxml):
@@ -534,7 +524,7 @@ def add_ArchivalProperties():
             print('--> Getting Archival Properties for each document --- documents processed: ' + str(count))
             totalDocumentsCount=str(count)
         
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding="utf-8") as f:
         f.write(prettyxml)
 
 
@@ -543,7 +533,7 @@ def add_ArchivalProperties():
 def finalizeXmlCorpus():
     prettyXml()
     
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding="utf-8") as f:
         f.write(prettyxml)
     f.closed
     
@@ -662,13 +652,13 @@ def addGeoCoordToXml():
         print('--> Place of Transit places: ' + str(count) + 'please wait...')
     
     # Update location dictionary file
-    with open(locationDictFile, 'w') as f:
+    with open(locationDictFile, 'w', encoding="utf-8") as f:
         f.write(json.dumps(locationDict))
         f.close()
 
     # Parse it
     formattedJson = jsbeautifier.beautify_file(locationDictFile)
-    with open(locationDictFile, 'w') as f:
+    with open(locationDictFile, 'w', encoding="utf-8") as f:
         f.write(formattedJson)
         f.close()
 
