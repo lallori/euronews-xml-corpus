@@ -418,7 +418,11 @@ def populateElasticsearchIndex():
                                 ##Get Date value for place
                                 fromDate=fromPlaceTag.get('date')
 
+                                # Check if date is null or has na/na/na in it
                                 if fromDate is None:
+                                    fromDate=hubDate
+
+                                if fromDate == 'na/na/na':
                                     fromDate=hubDate
                                   
                                 # Check date format

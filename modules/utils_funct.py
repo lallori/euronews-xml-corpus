@@ -39,7 +39,7 @@ def check_date_format(cdate,mapDocId, position):
     try:
         datetime.strptime(cdate, format)
     except ValueError :
-        print('Document: [' + mapDocId+'-'+position+'] - date is uncorrecly formatted pls check')
+        print('Document: [' + mapDocId+'-'+position+'] - date is uncorrecly formatted ['+cdate+'] pls check')
         sys.exit()
     return cdate
 
