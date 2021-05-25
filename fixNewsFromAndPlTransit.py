@@ -27,9 +27,12 @@ from modules.utils_funct import *
 
 ## FILES
 logfile="euronewsxmlcorpus.log"
+
 xmlcorpus="xml_corpus.xml"
-#xmlcorpus="test.xml"
 new_corpusfile="xml_corpus_new_syntax.xml"
+# xmlcorpus="test.xml"
+# new_corpusfile="test_new_syn.xml"
+
 location_dict_file = "locationDict.txt"
 
 # define globals
@@ -177,7 +180,7 @@ def print_pretty_xml():
         pretty_xml_text += line + "\n"
 
     # write file
-    pretty_xml_file=open(new_corpusfile, "w")
+    pretty_xml_file=open(new_corpusfile, "w", encoding="UTF-8")
     pretty_xml_file.write(pretty_xml_text)
 
 def create_xml_for_newsfrom(logf):
@@ -354,16 +357,20 @@ def create_xml_for_newsfrom(logf):
                 #<plTransit> and <plTransitDate> section#
                 #########################################
                 pltransitplace=newsfrom.find('plTransit')
+                pltransitdate=newsfrom.find('plTransitDate')
 
-                if pltransitplace is None:
+                if pltransitplace is None and pltransitdate is None:
                     # if no <plTransit> tag is present
                     pass
                 else:
+                    if pltransitplace is None and pltransitdate is not None:
+                        # if only plTransitDate is present so plTransit = to newsFromPlace
+                        pltransitplace = newsfrom.find('from')
                     # Initialize list lenght
                     pltransitplacelist=[]
                     pltransitplacelistlenght=0
                     # Populate place list
-                    pltransitplacelist=newsfrom.find('plTransit').text
+                    pltransitplacelist=pltransitplace.text
                     pltransitplacelist, pltransitplacelistlenght=enum_place(pltransitplacelist,miaDocId,newsposition)
 
                     # Initialize list lenght
@@ -388,7 +395,15 @@ def create_xml_for_newsfrom(logf):
 
                     pltransittagr=newsfrom.find('plTransit')
                     pltransitdatetagr=newsfrom.find('plTransitDate')
-                    newsfrom.remove(pltransittagr)
+                    
+
+
+                    # Clean pltransit tags
+                    if pltransittagr is None:
+                        pass
+                    else:
+                        newsfrom.remove(pltransittagr)
+                    
                     if pltransitdatetagr is None:
                         pass
                     else:
