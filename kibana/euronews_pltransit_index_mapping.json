@@ -1,0 +1,81 @@
+{
+  "mappings": {
+    "_doc": {
+      "properties": {
+        "collection": {
+          "type": "text"
+        },
+        "destination": {
+          "properties": {
+            "date": {
+              "type": "date",
+              "format": "dd/MM/yyyy"
+            },
+            "date-notes": {
+              "type": "text"
+            },
+            "date-unsure": {
+              "type": "boolean"
+            },
+            "location": {
+              "type": "geo_point"
+            },
+            "placeName": {
+              "type": "text"
+            }
+          }
+        },
+        "hub": {
+          "properties": {
+            "location": {
+              "type": "geo_point"
+            },
+            "placeName": {
+              "type": "text"
+            }
+          }
+        },
+        "miaDocId": {
+          "type": "keyword"
+        },
+        "miaDocURL": {
+          "type": "text"
+        },
+        "newsId": {
+          "type": "text"
+        },
+        "repository": {
+          "type": "text"
+        },
+        "source": {
+          "properties": {
+            "date": {
+              "type": "date",
+              "format": "dd/MM/yyyy"
+            },
+            "date-notes": {
+              "type": "text"
+            },
+            "date-unsure": {
+              "type": "boolean"
+            },
+            "location": {
+              "type": "geo_point"
+            },
+            "placeName": {
+              "type": "text"
+            }
+          }
+        },
+        "stage": {
+          "type": "text"
+        },
+        "transcription": {
+          "type": "text"
+        },
+        "volume": {
+          "type": "text"
+        }
+      }
+    }
+  }
