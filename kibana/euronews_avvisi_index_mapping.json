@@ -1,0 +1,113 @@
+{
+  "mappings": {
+    "_doc": {
+      "properties": {
+        "collection": {
+          "type": "keyword"
+        },
+        "from": {
+          "properties": {
+            "date": {
+              "type": "date",
+              "format": "dd/MM/yyyy"
+            },
+            "dateUnsure": {
+              "type": "boolean"
+            },
+            "fromUnsure": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "location": {
+              "type": "geo_point"
+            },
+            "placeName": {
+              "type": "text"
+            },
+            "placeUnsure": {
+              "type": "boolean"
+            }
+          }
+        },
+        "hub": {
+          "properties": {
+            "date": {
+              "type": "date",
+              "format": "dd/MM/yyyy"
+            },
+            "dateUnsure": {
+              "type": "boolean"
+            },
+            "location": {
+              "type": "geo_point"
+            },
+            "placeName": {
+              "type": "text"
+            },
+            "placeUnsure": {
+              "type": "boolean"
+            }
+          }
+        },
+        "miaDocId": {
+          "type": "keyword"
+        },
+        "miaDocURL": {
+          "type": "text"
+        },
+        "newsId": {
+          "type": "text"
+        },
+        "newsPosition": {
+          "type": "text"
+        },
+        "plTransit": {
+          "properties": {
+            "date": {
+              "type": "date",
+              "format": "dd/MM/yyyy"
+            },
+            "dateUnsure": {
+              "type": "boolean"
+            },
+            "location": {
+              "type": "geo_point"
+            },
+            "placeName": {
+              "type": "text"
+            },
+            "placeUnsure": {
+              "type": "boolean"
+            }
+          }
+        },
+        "repository": {
+          "type": "keyword"
+        },
+        "topics": {
+          "type": "text",
+          "fielddata": true
+        },
+        "topics_keyword": {
+          "type": "keyword"
+        },
+        "transcription": {
+          "type": "text",
+          "fielddata": true
+        },
+        "transcription_keyword": {
+          "type": "keyword"
+        },
+        "volume": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}
+
